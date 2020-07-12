@@ -93,7 +93,9 @@ inline int SUBNET(int x) { int ip[] = {255, 255, 255, 0}; return ip[x]; }
  * manual controls are bypassed by the web commands.\n
  * To disable the web control it is sufficient to actuate one of the manual controls.
  * 
- * Parameter: 
+ * Parameter: 1 to pass the control to the remote client via WiFi or 0 to regain the
+ * control to the physical switches.
+ * Format: WebControl=[1,0]
  */
 #define HTTPGET_WEBCONTROL      "/WebControl"
 

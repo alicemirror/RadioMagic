@@ -19,16 +19,18 @@
 
   \date July 2020
   \author Enrico Miglino <balearidcynamics@gmail.com>
-  \version 1.0 build 7
+  \version 1.0 build 9
  */
 
 #include <Streaming.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <PCF8574.h>
 
 #include "server_params.h"
 #include "log_strings.h"
 #include "html_header.h"
+#include "structs.h"
 
 //! #undef below to stop serial debugging info (speedup the system and reduces the memory)
 #define _DEBUG
@@ -39,10 +41,15 @@ const char* password = SECRET_PASS;  ///< The SSID password
 //! Creates the server instance
 WiFiServer server(SERVER_PORT);
 
+PCF8574 pcf8574(0x20, 21, 22);
+
 // Not used, uses the default internal IP address 192.168.4.1
 //IPAddress local_IP(IP(0), IP(1), IP(2), IP(3));
 //IPAddress gateway(GATEWAY(0), GATEWAY(1), GATEWAY(2), GATEWAY(3));
 //IPAddress subnet(SUBNET(0), SUBNET(1), SUBNET(2), SUBNET(3));
+
+//! Global status of the hardware device and controls.
+StatusSynth hardware;
 
 /** 
  *  Initialization function.
@@ -62,6 +69,16 @@ void setup() {
   Serial << "RadioMagic Access Point Web Server\n" <<
             "Setting soft-AP configuration." << endl;
 #endif
+
+  // Initialize the 8574 pins
+  pcf8574.pinMode(P0, OUTPUT, LOW);
+  pcf8574.pinMode(P1, OUTPUT, HIGH);
+  pcf8574.pinMode(P2, OUTPUT, LOW);
+  pcf8574.pinMode(P3, OUTPUT, HIGH);
+  pcf8574.pinMode(P4, OUTPUT, LOW);
+  pcf8574.pinMode(P5, OUTPUT, HIGH);
+
+  pcf8574.begin();
 
   // Configure the AP and assign the SSID
   WiFi.mode(WIFI_AP);
@@ -85,18 +102,20 @@ void loop() {
 #ifdef _DEBUG
     Serial << "Client connected" << endl;
 #endif
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
-        if (c == '\n') {                    // if the byte is a newline character
+    //! String holding the data coming from the remote client
+    String currentLine = "";
 
+    // loop while the client's connected
+    while (client.connected()) {
+      // Check to ingoing bytes from the client.
+      // Read bytes untile a newline is nor found
+      if (client.available()) {
+        char c = client.read();
+        if (c == '\n') {
           // if the current line is blank, you got two newline characters in a row.
           // that's the end of the client HTTP request, so send a response:
           if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
+            // Generate the response page
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             String s = MAIN_page;
@@ -123,17 +142,6 @@ void showWiFiStatus() {
   "MAC Address: " <<  WiFi.softAPmacAddress().c_str() << endl;
 }
 #endif
-
-/** 
- * Server response handler when calling the server IP address without parameters
- * 
- * If called from a browser send an http 200 with the default home page
- */
-void handleRoot() {
-  // Build the html page and send it to the client browser  
-//  String s = MAIN_page;
-//  client.print(200, "text/html", s); //Send web page
-}
 
 /**
  * Server response handler when the calling API does not exists
