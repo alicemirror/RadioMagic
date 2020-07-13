@@ -1,4 +1,4 @@
-/**
+000/0**
   \file RadioMagic.ino
   \brief The Radio Magic ESP-12 WROOM AP and web controller
 
@@ -19,21 +19,18 @@
 
   \date July 2020
   \author Enrico Miglino <balearidcynamics@gmail.com>
-  \version 1.0 build 11
+  \version 1.0 build 9
  */
 
 #include <Streaming.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <PCF8574.h>
-#include <Stepper.h>
-#include <ESP32Encoder.h>
 
 #include "server_params.h"
 #include "log_strings.h"
 #include "html_header.h"
 #include "structs.h"
-#include "constants.h"
 
 //! #undef below to stop serial debugging info (speedup the system and reduces the memory)
 #define _DEBUG
@@ -43,20 +40,8 @@ const char* password = SECRET_PASS;  ///< The SSID password
 
 //! Creates the server instance
 WiFiServer server(SERVER_PORT);
-//! Create the instance of the I2C GPIO extender (8 bits)
-PCF8574 pcf8574(0x20, 21, 22);
-//! initialize the stepper library
-Stepper radioTuner(STEPS_PER_REV, STEPPER_PIN_1, 
-                    STEPPER_PIN_2, STEPPER_PIN_3, 
-                    STEPPER_PIN_4);
-//! Number of steps, controlled by the encoder
-int tunerIncrements = 0;
 
-//! Rotary encoder class instance
-ESP32Encoder encoder;
-//! Rotary encoder last read value, used to detect when
-//! a new count value has been added
-int16_t encoderLastRead = 0;
+PCF8574 pcf8574(0x20, 21, 22);
 
 // Not used, uses the default internal IP address 192.168.4.1
 //IPAddress local_IP(IP(0), IP(1), IP(2), IP(3));
@@ -85,9 +70,7 @@ void setup() {
             "Setting soft-AP configuration." << endl;
 #endif
 
-  // ------------------------------------------------
   // Initialize the 8574 pins
-  // ------------------------------------------------
   pcf8574.pinMode(P0, OUTPUT, LOW);
   pcf8574.pinMode(P1, OUTPUT, HIGH);
   pcf8574.pinMode(P2, OUTPUT, LOW);
@@ -97,19 +80,7 @@ void setup() {
 
   pcf8574.begin();
 
-  pinMode(STEPPER_PIN_1, OUTPUT);
-  pinMode(STEPPER_PIN_2, OUTPUT);
-  pinMode(STEPPER_PIN_3, OUTPUT);
-  pinMode(STEPPER_PIN_4, OUTPUT);
-
-  // ------------------------------------------------
-  // Initialize the tuner stepper spped
-  // ------------------------------------------------
-  radioTuner.setSpeed(STEPPER_SPEED);
-
-  // ------------------------------------------------
   // Configure the AP and assign the SSID
-  // ------------------------------------------------
   WiFi.mode(WIFI_AP);
   // Not used, issue in the class method that continuously reset the hardware
   // WiFi.softAPConfig(local_IP, gateway, subnet);
@@ -119,43 +90,10 @@ void setup() {
 #ifdef _DEBUG 
   showWiFiStatus();
 #endif
-
-  // ------------------------------------------------
-  // Initialize the rotary encoder
-  // ------------------------------------------------
-  // Enable the pull up resistors
-  ESP32Encoder::useInternalWeakPullResistors = UP;
-  // Attache pins for use as encoder pins and reset the counter
-  encoder.attachHalfQuad(ROTARY_CLK, ROTARY_DATA);
-  encoder.clearCount();
-
-  // Initialize the rotary encoder button pin
-  pinMode(ROTARY_BUTTON, INPUT);
 }
 
 //! Main appplication function. Focused on the server activity
 void loop() {
-  //! Read the last counter value from the rotary encoder
-  int16_t newEncoderCount = 0;
-  //! Variation of positions during the last reading
-  int deltaEncoder = 0;
-
-  // Check if the rotary encoder has been moved
-  newEncoderCount = encoder.getCount();
-  
-  if(newEncoderCount != encoderLastRead) {    
-    //! Algebraic difference of the two values. The
-    //! sign of the difference includes the steps direction
-    deltaEncoder = newEncoderCount - encoderLastRead;
-    // Reset the encoder counter
-    encoderLastRead = newEncoderCount;
-    tunerIncrements = (int)(STEPPER_INCREMENT * deltaEncoder);
-#ifdef _DEBUG
-    Serial << "Rotary encoder moves tuner by " <<  tunerIncrements <<  " steps" << endl;
-#endif
-    radioTuner.step(tunerIncrements);
-  }
-  
   //! client contains the header when an incoming client
   //! is available
   WiFiClient client = server.available();   // listen for incoming clients
