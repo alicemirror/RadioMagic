@@ -13,9 +13,9 @@
 //! Steps per revolution, according to the motor specifications
 #define STEPS_PER_REV 2048
 //! Preset tuner stepper speed
-#define STEPPER_SPEED 10
+#define STEPPER_SPEED 20
 //! Number of steps per increment.
-#define STEPPER_INCREMENT 100
+#define STEPPER_INCREMENT 200
 
 //! Stepper direction clockwise. The number of increments is multiplied
 //! by the direction to get a positive or negative number
