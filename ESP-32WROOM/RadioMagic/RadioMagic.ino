@@ -19,7 +19,7 @@
 
   \date July 2020
   \author Enrico Miglino <balearidcynamics@gmail.com>
-  \version 1.0 build 11
+  \version 1.1 build 12 Stable
  */
 
 #include <Streaming.h>
