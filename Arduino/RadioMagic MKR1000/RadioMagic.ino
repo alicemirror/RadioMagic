@@ -1,6 +1,6 @@
 /**
   \file RadioMagic.ino
-  \brief The Radio Magic ESP-12 WROOM AP and web controller
+  \brief The Radio Magic Arduino MKR 1000 AP and web controller
 
   The program implement a dedicated access point and a restful web server
   to control some of the features of the Radio Magic hardware. This version
@@ -8,26 +8,30 @@
   the NE555 multi-synth interfacing some of the manual controls of the
   synth.
 
-  \note This version has been developed for the ESP/32 WROOM by AZ Delivery module.\n
+  \note This version has been originally developed for the ESP-32 WROOM by AZ Delivery module.\n
   Hardware WiFi library has an issue that avoid to set a dedicated ip address when
   setting the access point. This depends on the softAPConfig method that seems not
   working properly and continuously reset the hardware when a remote client tries to
   connect. Do not change the default WiFi AP IP address.\n
   The settings in the header file are still valid for other devices.
   A custom IP address for the AP (e.g. class 10.0.0.x) has been tested and works on
-  the Arduino MKR1010 and MKR1000, as well as the ESP8266-12
+  the Arduino MKR1010 and MKR1000, as well as the ESP8266-12.\n
+  Due to this and other issues, including the limitation of the power supply in the ESP-32
+  and serious stability issues of the Stepper library, ths program has been moved by the version 1.1
+  to the Arduino MKR1000 platform with minor updates, then some other improvements and
+  changes to support all the project features, including the stepper motor control.
 
   \date July 2020
   \author Enrico Miglino <balearidcynamics@gmail.com>
-  \version 1.1 build 13 Stable
+  \version 1.1 build 12
  */
 
 #include <Streaming.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
+#include <SPI.h>
+#include <WiFi101.h>
 #include <PCF8574.h>
-//#include <Stepper.h>
-#include <ESP32Encoder.h>
+#include <Stepper.h>
+#include <ClickEncoder.h>
 
 #include "server_params.h"
 #include "log_strings.h"
@@ -46,22 +50,29 @@ WiFiServer server(SERVER_PORT);
 //! Create the instance of the I2C GPIO extender (8 bits)
 PCF8574 pcf8574(0x20, 21, 22);
 //! initialize the stepper library
-//Stepper radioTuner(STEPS_PER_REV, STEPPER_PIN_1, 
-//                    STEPPER_PIN_2, STEPPER_PIN_3, 
-//                    STEPPER_PIN_4);
+Stepper radioTuner(STEPS_PER_REV, STEPPER_PIN_1, 
+                    STEPPER_PIN_2, STEPPER_PIN_3, 
+                    STEPPER_PIN_4);
+//! Pointer to the ClickEncoder class
+ClickEncoder *encoder;
+
+/**
+ * The rotary counter should be read twice before the number is incremented
+ * due to the mechanical characterisics of the device: it is difficult to position
+ * the encoder in the intermediate positionl
+ */
+int encoderCounter = 0;
+//! Roatry encoder last position
+//! Current rotary encoder position
+int16_t encValue;
+
 //! Number of steps, controlled by the encoder
 int tunerIncrements = 0;
 
-//! Rotary encoder class instance
-ESP32Encoder encoder;
-//! Rotary encoder last read value, used to detect when
-//! a new count value has been added
-int16_t encoderLastRead = 0;
-
-// Not used, uses the default internal IP address 192.168.4.1
-//IPAddress local_IP(IP(0), IP(1), IP(2), IP(3));
-//IPAddress gateway(GATEWAY(0), GATEWAY(1), GATEWAY(2), GATEWAY(3));
-//IPAddress subnet(SUBNET(0), SUBNET(1), SUBNET(2), SUBNET(3));
+IPAddress local_IP(IP(0), IP(1), IP(2), IP(3));
+IPAddress local_DNS(DNS(0), DNS(1), DNS(2), DNS(3));
+IPAddress gateway(GATEWAY(0), GATEWAY(1), GATEWAY(2), GATEWAY(3));
+IPAddress subnet(SUBNET(0), SUBNET(1), SUBNET(2), SUBNET(3));
 
 //! Global status of the hardware device and controls.
 StatusSynth hardware;
@@ -103,17 +114,15 @@ void setup() {
   pinMode(STEPPER_PIN_4, OUTPUT);
 
   // ------------------------------------------------
-  // Initialize the tuner stepper spped
+  // Initialize the tuner stepper speed
   // ------------------------------------------------
-//  radioTuner.setSpeed(STEPPER_SPEED);
+  radioTuner.setSpeed(STEPPER_SPEED);
 
   // ------------------------------------------------
   // Configure the AP and assign the SSID
   // ------------------------------------------------
-  WiFi.mode(WIFI_AP);
-  // Not used, issue in the class method that continuously reset the hardware
-  // WiFi.softAPConfig(local_IP, gateway, subnet);
-  WiFi.softAP(SECRET_SSID, SECRET_PASS);
+  WiFi.config(local_IP, local_DNS, gateway, subnet);
+  WiFi.beginAP(SECRET_SSID, SECRET_PASS);
   server.begin();
 
 #ifdef _DEBUG 
@@ -123,44 +132,31 @@ void setup() {
   // ------------------------------------------------
   // Initialize the rotary encoder
   // ------------------------------------------------
-  // Enable the pull up resistors
-  ESP32Encoder::useInternalWeakPullResistors = UP;
-  // Attache pins for use as encoder pins and reset the counter
-  encoder.attachHalfQuad(ROTARY_CLK, ROTARY_DATA);
-  encoder.clearCount();
-
   // Initialize the rotary encoder button pin
   pinMode(ROTARY_BUTTON, INPUT);
+
+  encoder = new ClickEncoder(ROTARY_CLK, ROTARY_DATA, ROTARY_BUTTON);
 }
 
-//! Main appplication function. Focused on the server activity
+//! Main appplication function.
 void loop() {
-  //! Read the last counter value from the rotary encoder
-  int16_t newEncoderCount = 0;
   //! Variation of positions during the last reading
   int deltaEncoder = 0;
 
   // Check if the rotary encoder has been moved
-  newEncoderCount = encoder.getCount();
+  newEncoderCount = encoder->getValue();
   
-  if(newEncoderCount != encoderLastRead) {    
-    //! Algebraic difference of the two values. The
+if ( (newEncoderCount != 0 ) && (encoderCounter == ENCODER_READINGS)) {    
     //! sign of the difference includes the steps direction
     deltaEncoder = newEncoderCount - encoderLastRead;
+    encoderCounter = 0; // Reset che counter readings
     // Reset the encoder counter
     encoderLastRead = newEncoderCount;
     tunerIncrements = (int)(STEPPER_INCREMENT * deltaEncoder);
 #ifdef _DEBUG
     Serial << "Rotary encoder moves tuner by " <<  tunerIncrements <<  " steps" << endl;
 #endif
-  if(tunerIncrements > 0) {
-    stepperCW(abs(tunerIncrements));
-  } else {
-    stepperCW(abs(tunerIncrements));
-  }
-  tunerIncrements = 0;
-  stepperOff();
-//    radioTuner.step(tunerIncrements);
+    radioTuner.step(tunerIncrements);
   }
   
   //! client contains the header when an incoming client
@@ -207,8 +203,7 @@ void loop() {
 
 #ifdef _DEBUG
 void showWiFiStatus() {
-  Serial << "RadioMagic AP: " << SECRET_SSID << " (" << WiFi.softAPIP() << ")\n" << 
-  "MAC Address: " <<  WiFi.softAPmacAddress().c_str() << endl;
+  Serial << "RadioMagic AP: " << SECRET_SSID << " (" << WiFi.localIP() << ")\n" << endl;
 }
 #endif
 
@@ -244,33 +239,4 @@ void serverError(String apiErrorCode) {
   String message = ERROR404;
   message += apiErrorCode;
 //  server.send(404, "text/plain", message);
-}
-
-void stepperCW(int steps) {
-  int j;
-  for(j = 0; j < steps; j++){
-    digitalWrite(STEPPER_PIN_1, LOW);
-    digitalWrite(STEPPER_PIN_2, HIGH);  
-    digitalWrite(STEPPER_PIN_3, LOW);
-    digitalWrite(STEPPER_PIN_4, HIGH);
-    delay(20);
-  }
-}
-
-void stepperCCW(int steps) {
-  int j;
-  for(j = 0; j < steps; j++){
-    digitalWrite(STEPPER_PIN_1, HIGH);
-    digitalWrite(STEPPER_PIN_2, LOW);  
-    digitalWrite(STEPPER_PIN_3, HIGH);
-    digitalWrite(STEPPER_PIN_4, LOW);
-    delay(20);
-  }
-}
-
-void stepperOff() {
-  digitalWrite(STEPPER_PIN_1, LOW);
-  digitalWrite(STEPPER_PIN_2, LOW);  
-  digitalWrite(STEPPER_PIN_3, LOW);
-  digitalWrite(STEPPER_PIN_4, LOW);
 }
