@@ -55,16 +55,11 @@ Stepper radioTuner(STEPS_PER_REV, STEPPER_PIN_1,
                     STEPPER_PIN_4);
 //! Pointer to the ClickEncoder class
 ClickEncoder *encoder;
+int16_t last, value;
 
-/**
- * The rotary counter should be read twice before the number is incremented
- * due to the mechanical characterisics of the device: it is difficult to position
- * the encoder in the intermediate positionl
- */
-int encoderCounter = 0;
-//! Roatry encoder last position
-//! Current rotary encoder position
-int16_t encValue;
+void timerIsr() {
+  encoder->service();
+}
 
 //! Number of steps, controlled by the encoder
 int tunerIncrements = 0;
@@ -108,11 +103,6 @@ void setup() {
 
   pcf8574.begin();
 
-  pinMode(STEPPER_PIN_1, OUTPUT);
-  pinMode(STEPPER_PIN_2, OUTPUT);
-  pinMode(STEPPER_PIN_3, OUTPUT);
-  pinMode(STEPPER_PIN_4, OUTPUT);
-
   // ------------------------------------------------
   // Initialize the tuner stepper speed
   // ------------------------------------------------
@@ -136,25 +126,19 @@ void setup() {
   pinMode(ROTARY_BUTTON, INPUT);
 
   encoder = new ClickEncoder(ROTARY_CLK, ROTARY_DATA, ROTARY_BUTTON);
+  
+  last = -1;
 }
 
 //! Main appplication function.
 void loop() {
-  //! Variation of positions during the last reading
-  int deltaEncoder = 0;
-
-  // Check if the rotary encoder has been moved
-  newEncoderCount = encoder->getValue();
+  value += encoder->getValue();
   
-if ( (newEncoderCount != 0 ) && (encoderCounter == ENCODER_READINGS)) {    
-    //! sign of the difference includes the steps direction
-    deltaEncoder = newEncoderCount - encoderLastRead;
-    encoderCounter = 0; // Reset che counter readings
-    // Reset the encoder counter
-    encoderLastRead = newEncoderCount;
-    tunerIncrements = (int)(STEPPER_INCREMENT * deltaEncoder);
+  if (value != last) {
+    last = value;
+//    tunerIncrements = (int)(STEPPER_INCREMENT * value);
 #ifdef _DEBUG
-    Serial << "Rotary encoder moves tuner by " <<  tunerIncrements <<  " steps" << endl;
+    Serial << "Rotary encoder moves tuner by " <<  value <<  " steps" << endl;
 #endif
     radioTuner.step(tunerIncrements);
   }
