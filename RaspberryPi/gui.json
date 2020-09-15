@@ -1,0 +1,10 @@
+{
+  "samples": "/media/pi/EXTERNAL/controlpanel/Samples/",
+  "images": "/media/pi/EXTERNAL/controlpanel/images/",
+  "rows" : 4,
+  "columns" : 8,
+  "buttonImages" : 8,
+  "buttonsize" : 80,
+  "offButtonImage" : "bNull",
+  "imageType" : ".png"
+}

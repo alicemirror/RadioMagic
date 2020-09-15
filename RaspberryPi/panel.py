@@ -17,6 +17,7 @@ import numpy as np
 from functools import partial
 from time import sleep
 from PIL import Image, ImageTk
+import json
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
@@ -31,6 +32,70 @@ screen_height = window.winfo_screenheight()
 # --------------------------------------------------------------
 #                           GUI Functions
 # --------------------------------------------------------------
+
+def load_GUI_parameters():
+    '''
+    Load the GUI parameters from the gui.json file and create the
+    buttons image list and the frame to include the buttons
+    '''
+    # Buttons grid size, rows
+    global panel_rows
+    # Buttons grid size, columns
+    global panel_cols
+    # Number of images (shaded colors) a button can have
+    global max_button_images
+    # The max number of function groups (associated to the same number of
+    # button colors)
+    global max_button_functions
+    # The size of the square buttons
+    global button_size
+    # Full path of the samples (bank folders)
+    global samples_path
+    # Full path of the GUI images
+    global images_path
+    # Image files extension (jpeg or png)
+    global image_extension
+    # Buttons images list
+    # Every button can assume one of the images in the list, according
+    # to the applicaiton logic
+    # The button images are named accordingly, in the format b<nn>.png
+    global b_images
+    # button image without associated functio
+    global image_off_button
+    # The frame that includes all the buttons.
+    # The parameters for the border and pads will center the button grid
+    # on the screen. Keep them fixed! Should be recalculated if the
+    # button size or number of buttons change.
+    global frame_container
+
+    # The frame that includes all the buttons.
+    # The parameters for the border and pads will center the button grid
+    # on the screen. Keep them fixed! Should be recalculated if the
+    # button size or number of buttons change.
+    frame_container = create_frame_container()
+
+    # Pack the frame container ready to include the buttons grid
+    frame_container.pack(
+        side=tk.TOP,
+        fill=tk.BOTH
+    )
+
+    # Loads the music lists
+    with open("gui.json") as file:
+        dictionary = json.load(file)
+
+    image_extension = dictionary['imageType']
+    images_path = dictionary['images']
+    max_button_images = int(dictionary['buttonImages'])
+    max_button_functions = max_button_images
+    samples_path = dictionary['samples']
+    panel_rows = dictionary['rows']
+    panel_cols = dictionary['columns']
+    button_size = dictionary['buttonsize']
+
+    image_off_button = resize_image_button(images_path + dictionary['offButtonImage'] + image_extension)
+    b_images = list(resize_image_button((images_path + "b%02d" + image_extension) % (i + 1))
+                    for i in range(max_button_images))
 
 def create_frame_container():
     '''
@@ -59,6 +124,8 @@ def resize_image_button(name):
     :param name: The full path image file name
     :return: The PhotoImage object to be assigned to the button surface
     '''
+    global button_size
+
     file = Image.open(name)
     newsize = (button_size, button_size)
     btn = file.resize(newsize)
@@ -77,6 +144,8 @@ def get_button_id(row, col):
     :param col: the selected column
     :return: the button id in the list
     '''
+    global panel_cols
+
     return (row * panel_cols) + col
 
 def klik(n):
@@ -88,6 +157,10 @@ def klik(n):
 
     :param n: The ID of the clicked button
     '''
+    global b_images
+    global panel_cols
+    global panel_rows
+    global max_button_functions
     global function_id
 
     # n not zero
@@ -99,7 +172,7 @@ def klik(n):
     if(n is 0):
         button[n].config(image=b_images[function_id])
         function_id += 1
-        if(function_id is max_functions):
+        if(function_id is max_button_functions):
             function_id = 0
 
         # ---- Only for debug and testing
@@ -116,6 +189,11 @@ def make_panel():
     a frame of defined rows and columns and associate to every button
     a corresponding callback fucntion
     '''
+    global b_images
+    global panel_cols
+    global panel_rows
+    global frame_container
+    global image_off_button
 
     # Fill the buttons list with the objects
     for i in range(panel_rows):
@@ -137,18 +215,23 @@ def make_panel():
 #                   Parameters & Constants
 # --------------------------------------------------------------
 
-# Buttons grid size, rows
-panel_rows = 8
-# Buttons grid size, columns
-panel_cols = 8
-# Number of images (shaded colors) a button can have
-max_button_images = 8
-# The max number of fucntion groups (associated to the same number of
-# button colors)
-max_functions = max_button_images
-
-# The size of the square buttons
-button_size = 40
+# # Buttons grid size, rows
+# panel_rows = 0
+# # Buttons grid size, columns
+# panel_cols = 0
+# # Number of images (shaded colors) a button can have
+# max_button_images = 0
+# # The max number of function groups (associated to the same number of
+# # button colors)
+# max_button_functions = 0
+# # The size of the square buttons
+# button_size = 0
+# # Full path of the samples (bank folders)
+# samples_path = ""
+# # Full path of the GUI images
+# images_path = ""
+# # Image files extension (jpeg or png)
+# image_extension = ""
 
 # Number of different function groups, corresponding to different
 # button colors.
@@ -165,25 +248,25 @@ _debug = True
 #                   Global calculations
 # --------------------------------------------------------------
 
-# Buttons images list
-# Every button can assume one of the images in the list, according
-# to the applicaiton logic
-# The button images are named accordingly, in the format b<nn>.png
-b_images = list(resize_image_button("images/b%02d.png" % (i+1)) for i in range(max_button_images))
-
-image_off_button = resize_image_button("images/bNull.png")
-
-# The frame that includes all the buttons.
-# The parameters for the border and pads will center the button grid
-# on the screen. Keep them fixed! Should be recalculated if the
-# button size or number of buttons change.
-frame_container = create_frame_container()
-
-# Pack the frame container ready to include the buttons grid
-frame_container.pack(
-    side=tk.TOP,
-    fill=tk.BOTH
-)
+# # Buttons images list
+# # Every button can assume one of the images in the list, according
+# # to the applicaiton logic
+# # The button images are named accordingly, in the format b<nn>.png
+# b_images = list(resize_image_button("images/b%02d.png" % (i+1)) for i in range(max_button_images))
+#
+# image_off_button = resize_image_button("images/bNull.png")
+#
+# # The frame that includes all the buttons.
+# # The parameters for the border and pads will center the button grid
+# # on the screen. Keep them fixed! Should be recalculated if the
+# # button size or number of buttons change.
+# frame_container = create_frame_container()
+#
+# # Pack the frame container ready to include the buttons grid
+# frame_container.pack(
+#     side=tk.TOP,
+#     fill=tk.BOTH
+# )
 
 # --------------------------------------------------------------
 #                           Application
@@ -193,5 +276,6 @@ if __name__ == "__main__":
     '''
     Main application
     '''
+    load_GUI_parameters()
     make_panel()
     window.mainloop()
