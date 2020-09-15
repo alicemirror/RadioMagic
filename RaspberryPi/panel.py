@@ -9,7 +9,7 @@
 # effects generators and more.
 #
 # @author Enrico Miglino <balearicdynamicw@gmail.com>
-# @version 1.0 build 2
+# @version 1.0 build 3
 # @date September 2020
 
 import tkinter as tk
@@ -67,18 +67,12 @@ def load_GUI_parameters():
     # on the screen. Keep them fixed! Should be recalculated if the
     # button size or number of buttons change.
     global frame_container
-
-    # The frame that includes all the buttons.
-    # The parameters for the border and pads will center the button grid
-    # on the screen. Keep them fixed! Should be recalculated if the
-    # button size or number of buttons change.
-    frame_container = create_frame_container()
-
-    # Pack the frame container ready to include the buttons grid
-    frame_container.pack(
-        side=tk.TOP,
-        fill=tk.BOTH
-    )
+    # Frame container border
+    global f_border
+    # Frame container pad x
+    global f_padx
+    # Frame container pad y
+    global f_pady
 
     # Loads the music lists
     with open("gui.json") as file:
@@ -92,6 +86,21 @@ def load_GUI_parameters():
     panel_rows = dictionary['rows']
     panel_cols = dictionary['columns']
     button_size = dictionary['buttonsize']
+    f_border = int(dictionary['frame_border'])
+    f_padx = int(dictionary['frame_padX'])
+    f_pady = int(dictionary['frame_padY'])
+
+    # The frame that includes all the buttons.
+    # The parameters for the border and pads will center the button grid
+    # on the screen. Keep them fixed! Should be recalculated if the
+    # button size or number of buttons change.
+    frame_container = create_frame_container()
+
+    # Pack the frame container ready to include the buttons grid
+    frame_container.pack(
+        side=tk.TOP,
+        fill=tk.BOTH
+    )
 
     image_off_button = resize_image_button(images_path + dictionary['offButtonImage'] + image_extension)
     b_images = list(resize_image_button((images_path + "b%02d" + image_extension) % (i + 1))
@@ -103,14 +112,18 @@ def create_frame_container():
 
     :return: the TkInter Frame object
     '''
+    global f_border
+    global f_padx
+    global f_pady
+
     return tk.Frame(
         window,
         highlightcolor='black',
         highlightbackground='black',
         background="black",
-        border=10,
-        padx=24,
-        pady=6
+        border=f_border,
+        padx=f_padx,
+        pady=f_pady
     )
 
 def resize_image_button(name):
