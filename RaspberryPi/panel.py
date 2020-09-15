@@ -8,8 +8,11 @@
 # Raspberry Pi controlling the Audio acquisition, automatic sound sampling and
 # effects generators and more.
 #
+# Note that this version of the interface should work with 8 rows of 16 buttons per row
+# define in the GUI configuration file gui.json
+#
 # @author Enrico Miglino <balearicdynamicw@gmail.com>
-# @version 1.0 build 3
+# @version 1.0 build 5
 # @date September 2020
 
 import tkinter as tk
@@ -74,7 +77,7 @@ def load_GUI_parameters():
     # Frame container pad y
     global f_pady
 
-    # Loads the music lists
+    # Loads the parameters main dictionary
     with open("gui.json") as file:
         dictionary = json.load(file)
 
@@ -175,26 +178,47 @@ def klik(n):
     global panel_rows
     global max_button_functions
     global function_id
+    global current_bank
 
     # n not zero
     if (_debug):
         print("click: %d" % n)
 
-    # When the top left button is pressed the colour is changed cyclically
-    # Every color corresponds to a different set of features of the application
-    if(n is 0):
-        button[n].config(image=b_images[function_id])
-        function_id += 1
-        if(function_id is max_button_functions):
-            function_id = 0
+    # Check if a bank change has been pressed. If the bank
+    # is the same already loaded, do nothing
+    if(n == 15):
+        if (current_bank != 0):
+            load_bank_IDs(0)
+            refresh_bank_buttons()
+    elif(n == 31):
+        if (current_bank != 1):
+            load_bank_IDs(1)
+            refresh_bank_buttons()
+    elif(n == 47):
+        if (current_bank != 2):
+            load_bank_IDs(2)
+            refresh_bank_buttons()
+    elif(n == 63):
+        if (current_bank != 3):
+            load_bank_IDs(3)
+            refresh_bank_buttons()
+    elif(n == 79):
+        if (current_bank != 4):
+            load_bank_IDs(4)
+            refresh_bank_buttons()
+    elif(n == 95):
+        if (current_bank != 5):
+            load_bank_IDs(5)
+            refresh_bank_buttons()
+    elif(n == 111):
+        if (current_bank != 6):
+            load_bank_IDs(6)
+            refresh_bank_buttons()
+    elif(n == 127):
+        if (current_bank != 7):
+            load_bank_IDs(7)
+            refresh_bank_buttons()
 
-        # ---- Only for debug and testing
-        if(_debug):
-            print("click: %d" % n)
-            for i in range(panel_rows):
-                for j in range(panel_cols):
-                    button[get_button_id(i, j)].config(image=b_images[function_id])
-        #--- Debug end
 
 def make_panel():
     '''
@@ -225,26 +249,116 @@ def make_panel():
             button[-1].relief = 'sunken'
 
 # --------------------------------------------------------------
-#                   Parameters & Constants
+#                       Bank Functions
 # --------------------------------------------------------------
 
-# # Buttons grid size, rows
-# panel_rows = 0
-# # Buttons grid size, columns
-# panel_cols = 0
-# # Number of images (shaded colors) a button can have
-# max_button_images = 0
-# # The max number of function groups (associated to the same number of
-# # button colors)
-# max_button_functions = 0
-# # The size of the square buttons
-# button_size = 0
-# # Full path of the samples (bank folders)
-# samples_path = ""
-# # Full path of the GUI images
-# images_path = ""
-# # Image files extension (jpeg or png)
-# image_extension = ""
+def load_bank_IDs(bank):
+    '''
+    Load the notes status array for the eight octaves of the
+    selected bank
+    :param bank: The bank number
+    '''
+    # The selected samples bank
+    global current_bank
+    global octave1
+    global octave2
+    global octave3
+    global octave4
+    global octave5
+    global octave6
+    global octave7
+    global octave8
+
+    # Loads the music bank note IDa
+    j_name = "bank" + str(bank) + ".json"
+    # Set the current bank
+    current_bank = bank
+
+    if(_debug):
+        print("loading " + j_name)
+
+    with open(j_name) as file:
+        dictionary = json.load(file)
+
+    # Load the notes flags for every octave.
+    # There are max eight octaves and the notes are
+    # listed in the traditional order c, c#, d, d#, e, f, f#, a, a#, b
+    # Every note that correspons a sample in the current bank has the
+    # flag set to 1 else it is 0
+    octave1 = dictionary['oct1']
+    octave2 = dictionary['oct2']
+    octave3 = dictionary['oct3']
+    octave4 = dictionary['oct4']
+    octave5 = dictionary['oct5']
+    octave6 = dictionary['oct6']
+    octave7 = dictionary['oct7']
+    octave8 = dictionary['oct8']
+
+def refresh_bank_buttons():
+    '''
+    Refresh the buttons of the interface according to the current
+    bank note flags
+    '''
+    global panel_rows
+    global panel_cols
+    global current_bank
+    global image_off_button
+
+    # Enable the buttons with a note in the bank (first 12 buttons from left)
+    # Loop all the 12 notes and updates the 8 octaves
+    for j in range(12):
+        if(octave1[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(0, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(0, j)].config(image= image_off_button)
+        if(octave2[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(1, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(1, j)].config(image= image_off_button)
+        if(octave3[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(2, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(2, j)].config(image= image_off_button)
+        if(octave4[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(3, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(3, j)].config(image= image_off_button)
+        if(octave5[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(4, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(4, j)].config(image= image_off_button)
+        if(octave6[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(5, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(5, j)].config(image= image_off_button)
+        if(octave7[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(6, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(6, j)].config(image= image_off_button)
+        if(octave8[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(7, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(7, j)].config(image= image_off_button)
+
+    # Show the button corresponding to the selected bank (rightmost column)
+    for i in range(panel_rows):
+        if(current_bank == i):
+            # Set the button with the corresponding bank select color
+            button[get_button_id(i, 15)].config(image=b_images[1])
+        else:
+            button[get_button_id(i, 15)].config(image= image_off_button)
+
+# --------------------------------------------------------------
+#                   Parameters & Constants
+# --------------------------------------------------------------
 
 # Number of different function groups, corresponding to different
 # button colors.
@@ -289,6 +403,13 @@ if __name__ == "__main__":
     '''
     Main application
     '''
+    # Initialize the GUI according to the json parameters
     load_GUI_parameters()
+    # Load the first samples bank (max 8) by default
+    load_bank_IDs(0)
+    # Create the GUI
     make_panel()
+    # Show the first default bank settings
+    refresh_bank_buttons()
+    # Start the main loop application
     window.mainloop()
