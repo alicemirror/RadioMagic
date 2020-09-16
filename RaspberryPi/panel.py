@@ -12,7 +12,7 @@
 # define in the GUI configuration file gui.json
 #
 # @author Enrico Miglino <balearicdynamicw@gmail.com>
-# @version 1.0 build 5
+# @version 1.0 build 6
 # @date September 2020
 
 import tkinter as tk
@@ -21,12 +21,16 @@ from functools import partial
 from time import sleep
 from PIL import Image, ImageTk
 import json
+#from playsound import playsound
+import tkSnack
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
 window.state('normal')
 window.title('Py Synth Control panel')
 window.background = 'black'
+tkSnack.initializeSnack(window)
+sound = tkSnack.Sound()
 
 # ------------------------ Screen resolution to parametrize the size of the buttons
 screen_width = window.winfo_screenwidth()
@@ -177,7 +181,6 @@ def klik(n):
     global panel_cols
     global panel_rows
     global max_button_functions
-    global function_id
     global current_bank
 
     # n not zero
@@ -218,6 +221,67 @@ def klik(n):
         if (current_bank != 7):
             load_bank_IDs(7)
             refresh_bank_buttons()
+
+    # The note and octvae values are caltulated here to reduce the
+    # number of calc but until are not verified by the controls below,
+    # it is not certain that correspond to a real value
+    note = calc_note(n)
+    octave = calc_octave(n)
+
+    if(note < 12):
+        octave = (n // panel_rows) // 2
+        # Check for the note in the corresponding octave
+        if(octave == 0):
+            if(octave1[note] == 1):
+                play_sample(n)
+        elif(octave == 1):
+            if(octave2[note] == 1):
+                play_sample(n)
+        elif(octave == 2):
+            if(octave3[note] == 1):
+                play_sample(n)
+        elif(octave == 3):
+            if(octave4[note] == 1):
+                play_sample(n)
+        elif(octave == 4):
+            if(octave5[note] == 1):
+                play_sample(n)
+        elif(octave == 5):
+            if(octave6[note] == 1):
+                play_sample(n)
+        elif(octave == 6):
+            if(octave7[note] == 1):
+                play_sample(n)
+        elif(octave == 7):
+            if(octave8[note] == 1):
+                play_sample(n)
+
+def calc_note(n):
+    '''
+    Return the note number corresponding to the button (based on 16 buttons per row)
+
+    The calculated value is base zero
+
+    :param n: The button ID
+    :return: The corresopnding note value
+    '''
+    global panel_rows
+
+    return n % panel_rows
+
+
+def calc_octave(n):
+    '''
+    Return the octave number corresponding to the button (based on 8 rows)
+
+    The calculated value is base zero
+
+    :param n: The button ID
+    :return: The corresopnding octave value
+    '''
+    global panel_rows
+
+    return (n // panel_rows) // 2
 
 
 def make_panel():
@@ -356,44 +420,56 @@ def refresh_bank_buttons():
         else:
             button[get_button_id(i, 15)].config(image= image_off_button)
 
+def play_sample(btn):
+    '''
+    Play the sample corresponding to the note button parameter, if a sample
+    is present in the position of the current loaded bank.
+
+    The unique button ID is decoded in row and column, corresponding to the
+    octave and specific note.
+
+    :param btn: The ID of the note (corresponding to the button ID
+    '''
+    global current_bank
+    global panel_rows
+    global panel_cols
+    global max_button_images
+    global max_button_functions
+    global button_size
+    global samples_path
+    global images_path
+    global _debug
+
+    octave = calc_octave(btn)
+    note = calc_note(btn)
+
+    if(_debug):
+        print(" Octave " + str(octave) + " note " + str(note))
+
+    # Note prefix file names
+    note_names = ("c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b")
+    # Create the file name of the note and octave based on the samples file name format
+    note_file_name = note_names[note] + str(octave + 1) + ".wav"
+    # Create the full path note name according to the current samples bank
+    sample_full_name = samples_path + "B" + str(current_bank) + "/" + note_file_name
+
+    if(_debug):
+        print("playing " + sample_full_name)
+
+    # Read the file
+    sound.read(sample_full_name)
+    # Play sound
+    sound.play(blocking=1)
+
 # --------------------------------------------------------------
 #                   Parameters & Constants
 # --------------------------------------------------------------
-
-# Number of different function groups, corresponding to different
-# button colors.
-# The button zero (top left corner) changes the functions group
-function_id = 0
 
 # Buttons list
 button = list()
 
 # Debug flag. Set it to false to disable the debug messages
 _debug = True
-
-# --------------------------------------------------------------
-#                   Global calculations
-# --------------------------------------------------------------
-
-# # Buttons images list
-# # Every button can assume one of the images in the list, according
-# # to the applicaiton logic
-# # The button images are named accordingly, in the format b<nn>.png
-# b_images = list(resize_image_button("images/b%02d.png" % (i+1)) for i in range(max_button_images))
-#
-# image_off_button = resize_image_button("images/bNull.png")
-#
-# # The frame that includes all the buttons.
-# # The parameters for the border and pads will center the button grid
-# # on the screen. Keep them fixed! Should be recalculated if the
-# # button size or number of buttons change.
-# frame_container = create_frame_container()
-#
-# # Pack the frame container ready to include the buttons grid
-# frame_container.pack(
-#     side=tk.TOP,
-#     fill=tk.BOTH
-# )
 
 # --------------------------------------------------------------
 #                           Application

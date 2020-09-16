@@ -4,9 +4,9 @@
   "rows" : 8,
   "columns" : 16,
   "buttonImages" : 8,
-  "buttonsize" : 42,
-  "frame_padX" : 10,
-  "frame_padY" : 10,
+  "buttonsize" : 44,
+  "frame_padX" : 0,
+  "frame_padY" : 0,
   "frame_border" : 2,
   "offButtonImage" : "bNull",
   "imageType" : ".png"
