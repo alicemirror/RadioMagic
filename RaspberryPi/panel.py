@@ -12,7 +12,7 @@
 # define in the GUI configuration file gui.json
 #
 # @author Enrico Miglino <balearicdynamicw@gmail.com>
-# @version 1.0 build 6
+# @version 1.0 build 7
 # @date September 2020
 
 import tkinter as tk
@@ -90,8 +90,8 @@ def load_GUI_parameters():
     max_button_images = int(dictionary['buttonImages'])
     max_button_functions = max_button_images
     samples_path = dictionary['samples']
-    panel_rows = dictionary['rows']
-    panel_cols = dictionary['columns']
+    panel_rows = int(dictionary['rows'])
+    panel_cols = int(dictionary['columns'])
     button_size = dictionary['buttonsize']
     f_border = int(dictionary['frame_border'])
     f_padx = int(dictionary['frame_padX'])
@@ -266,8 +266,11 @@ def calc_note(n):
     :return: The corresopnding note value
     '''
     global panel_rows
+    global panel_cols
 
-    return n % panel_rows
+    button_col = n - (calc_octave(n) * panel_cols)
+
+    return button_col
 
 
 def calc_octave(n):
@@ -444,7 +447,9 @@ def play_sample(btn):
     note = calc_note(btn)
 
     if(_debug):
-        print(" Octave " + str(octave) + " note " + str(note))
+        print(" Octave " + str(octave) +
+              " note " + str(note) +
+              " button " + str(btn) )
 
     # Note prefix file names
     note_names = ("c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b")

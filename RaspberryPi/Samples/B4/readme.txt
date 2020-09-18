@@ -1,0 +1,1 @@
+This sample comes from the Bedroom Producer's Blog BPB Mini Analogue Free Sample Collection. This collection can be downloaded here: http://bedroomproducersblog.com/2012/06/13/bpb-mini-analogue-collection-free-sample-pack/. These samples were turned into SamplerBox samples by Dave Hilowitz (dhilowitz@gmail.com).
