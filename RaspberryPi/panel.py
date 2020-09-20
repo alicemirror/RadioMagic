@@ -12,7 +12,7 @@
 # define in the GUI configuration file gui.json
 #
 # @author Enrico Miglino <balearicdynamicw@gmail.com>
-# @version 1.0 build 7
+# @version 1.0 build 8
 # @date September 2020
 
 import tkinter as tk
@@ -21,8 +21,27 @@ from functools import partial
 from time import sleep
 from PIL import Image, ImageTk
 import json
-#from playsound import playsound
 import tkSnack
+
+AUDIO_DEVICE_ID = 2                     # change this number to use another soundcard
+# The root directory containing the sample-sets. Example: "/media/" to look for samples on a USB stick / SD card
+SAMPLES_DIR = "/media/pi/EXTERNAL/Samples"
+# SAMPLES_DIR = "."                       # The root directory containing the sample-sets. Example: "/media/" to look for samples on a USB stick / SD card
+USE_SERIALPORT_MIDI = False             # Set to True to enable MIDI IN via SerialPort (e.g. RaspberryPi's GPIO UART pins)
+USE_I2C_7SEGMENTDISPLAY = False         # Set to True to use a 7-segment display via I2C
+USE_BUTTONS = False                     # Set to True to use momentary buttons (connected to RaspberryPi's GPIO pins) to change preset
+MAX_POLYPHONY = 80                      # This can be set higher, but 80 is a safe value
+
+import wave
+import time
+import os
+import re
+import sounddevice
+import threading
+from chunk import Chunk
+import struct
+import rtmidi_python as rtmidi
+import samplerbox_audio
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
