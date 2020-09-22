@@ -4,10 +4,13 @@
   "rows" : 8,
   "columns" : 16,
   "buttonImages" : 8,
-  "buttonsize" : 44,
+  "buttonsize" : 42,
   "frame_padX" : 0,
   "frame_padY" : 0,
   "frame_border" : 2,
   "offButtonImage" : "bNull",
-  "imageType" : ".png"
+  "imageType" : ".png",
+  "audioDevice" : 2,
+  "maxPolyphony" : 80,
+  "note_names" : [  "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ]
 }
