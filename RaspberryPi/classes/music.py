@@ -16,6 +16,12 @@ import rtmidi_python as rtmidi
 # Cython compiled audio engine .so file
 import samplerbox_audio
 
+_class_debug = False
+
+class Ps():
+    def __init__(self):
+        self.playingsounds = []
+
 class waveread(wave.Wave_read):
     '''
 
@@ -40,7 +46,7 @@ class waveread(wave.Wave_read):
 
         # Check for RIFF id in the file header
 
-        print("D: file.getname() " + str(self._file.getname()))
+        if(_class_debug): print("D: file.getname() " + str(self._file.getname()))
 
         if self._file.getname() != b'RIFF':
             raise Exception('file does not start with RIFF id')
@@ -123,6 +129,7 @@ class PlayingSound:
         self.fadeoutpos = 0
         self.isfadeout = False
         self.note = note
+        self.playingsounds = Ps.playingsounds
 
     def fadeout(self, i):
         '''
@@ -131,13 +138,13 @@ class PlayingSound:
         :param i:
         :return:
         '''
+
         self.isfadeout = True
 
     def stop(self):
         '''
-        Try to stop the current playing sound
+        Try to stop the current playing sound list
 
-        :return:
         '''
         try:
             playingsounds.remove(self)
@@ -156,7 +163,7 @@ class Sound:
         :param velocity:
         '''
 
-        print("D: filename " + filename)
+        if(_class_debug): print("D: filename " + filename)
 
         wf = waveread(filename)
         self.fname = filename
@@ -174,11 +181,16 @@ class Sound:
         wf.close()
 
     def play(self, note):
-        ''''
-        Play the selected sound note
         '''
+        Append the selected note playing as an instance to
+        of the Sound class
+
+        :param note: The selected note
+        :return:  the PlayinSound class instance with the new appaended playing note
+        '''
+
         snd = PlayingSound(self, note)
-        playingsounds.append(snd)
+        snd.playingsounds.append(snd)
         return snd
 
     def frames2array(self, data, sampwidth, numchan):

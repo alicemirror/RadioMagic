@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 10
+@version 1.0 build 11
 @date September 2020
 '''
 
@@ -37,7 +37,7 @@ import threading
 import rtmidi_python as rtmidi
 import samplerbox_audio
 
-import classes.music
+from classes.music import Sound, PlayingSound, Ps
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
@@ -64,7 +64,7 @@ audio_device_id = 0
 button = list()
 
 # Debug flag. Set it to false to disable the debug messages
-_debug = True
+_debug = False
 
 def debugMsg(m):
     '''
@@ -93,7 +93,8 @@ samples = {}
 playingnotes = {}
 sustainplayingnotes = []
 sustain = False
-playingsounds = []
+# playingsounds = []
+ps = Ps
 
 midi_in = [rtmidi.MidiIn(b'in')]
 previous = []
@@ -620,13 +621,13 @@ def AudioCallback(outdata, frame_count, time_info, status):
     :param status:
     :return:
     '''
-    global playingsounds
+    # global playingsounds
     rmlist = []
-    playingsounds = playingsounds[-max_polyphony:]
-    b = samplerbox_audio.mixaudiobuffers(playingsounds, rmlist, frame_count, FADEOUT, FADEOUTLENGTH, SPEED)
+    ps.playingsounds = ps.playingsounds[-max_polyphony:]
+    b = samplerbox_audio.mixaudiobuffers(ps.playingsounds, rmlist, frame_count, FADEOUT, FADEOUTLENGTH, SPEED)
     for e in rmlist:
         try:
-            playingsounds.remove(e)
+            ps.playingsounds.remove(e)
         except:
             pass
     b *= globalvolume
@@ -634,14 +635,17 @@ def AudioCallback(outdata, frame_count, time_info, status):
 
 def MidiCallback(message, time_stamp):
     '''
+    Process the MIDI messages
 
-    :param message:
-    :param time_stamp:
+    :param message: The MIDI message packet
+    :param time_stamp: The timestamp for correctly queue the messages
     :return:
     '''
     global playingnotes, sustain, sustainplayingnotes
     global preset, globaltranspose, globalvolume
+    global samples
 
+    # Decode the MIDI message in its components
     messagetype = message[0] >> 4
     messagechannel = (message[0] & 15) + 1
     note = message[1] if len(message) > 1 else None
@@ -652,19 +656,24 @@ def MidiCallback(message, time_stamp):
              " messagechannel " + str(messagechannel) + " midinote " + str(midinote) +
              " velocity " + str(velocity))
 
+    # Assumes the message type (9) note on with velocity 0 as
+    # message type (8) note off
     if messagetype == 9 and velocity == 0:
         messagetype = 8
 
-    if messagetype == 9:    # Note on
+    # If message type (9) note on apply eventual octave transposition and play
+    # the note
+    if messagetype == 9:
         debugMsg("messagetype is 9 (note on) globaltranspose " + str(globaltranspose))
         midinote += globaltranspose
         try:
-            debugMsg("playing notes")
+            debugMsg("playing notes" + str(samples[midinote, velocity]))
             playingnotes.setdefault(midinote, []).append(samples[midinote, velocity].play(midinote))
         except:
             debugMsg("Exception, pass")
             pass
 
+    # Process the message type (8) note off applyin the sustain if it is active
     elif messagetype == 8:  # Note off
         debugMsg("messagetype is 8 (note off) globaltranspose " + str(globaltranspose))
         midinote += globaltranspose
@@ -672,21 +681,28 @@ def MidiCallback(message, time_stamp):
             for n in playingnotes[midinote]:
                 if sustain:
                     sustainplayingnotes.append(n)
-                else:
-                    n.fadeout(50)
+                # else:
+                #     n.fadeout(50)
+            # Empty the played notes array
             playingnotes[midinote] = []
 
+    # Process the message type (12) program change and load the
+    # new group of samples.
     elif messagetype == 12:  # Program change
         debugMsg('Program change ' + str(note))
         preset = note
         LoadSamples()
 
+    # Process the message type (11) for pedal off (associated to the sustain)
+    # With note 64 and velocity < 64 (typical 0)
     elif (messagetype == 11) and (note == 64) and (velocity < 64):  # sustain pedal off
         for n in sustainplayingnotes:
             n.fadeout(50)
         sustainplayingnotes = []
         sustain = False
 
+    # Process the message type (11) for pedal on (associated to the sustain)
+    # With note 64 and velocity > 64 (typical 127)
     elif (messagetype == 11) and (note == 64) and (velocity >= 64):  # sustain pedal on
         sustain = True
 
@@ -732,6 +748,7 @@ def LoadSamples():
     global LoadingThread
     global LoadingInterrupt
     global NOTES
+    global samples
 
     if LoadingThread:
         LoadingInterrupt = True
@@ -749,8 +766,6 @@ def ActuallyLoad():
     function LoadSamples()
     '''
     global preset
-    global samples
-    global playingsounds
     global globalvolume
     global globaltranspose
     global globalvelocity
@@ -760,7 +775,7 @@ def ActuallyLoad():
     global playingnotes
     global sustainplayingnotes
     global sustain
-    global playingsounds
+    # global playingsounds
     global octave1
     global octave2
     global octave3
@@ -770,12 +785,13 @@ def ActuallyLoad():
     global octave7
     global octave8
 
-    playingsounds = []
+    ps.playingsounds = []
     samples = {}
     # globalvolume = 10 ** (-12.0/20)  # -12dB default global volume
     # globaltranspose = 0
 
-    samplesdir = samples_path if os.listdir(samples_path) else '.'      # use current folder (containing 0 Saw) if no user media containing samples has been found
+    # use current folder (containing 0 Saw) if no user media containing samples has been found
+    # samplesdir = samples_path if os.listdir(samples_path) else '.'
 
     # basename = next((f for f in os.listdir(samplesdir) if f.startswith("%d " % preset)), None)      # or next(glob.iglob("blah*"), None)
     # if basename:
@@ -825,9 +841,9 @@ def ActuallyLoad():
 
     # else:
 
-    # Only the first 96 notes are used (12 notes x 8 octaves)
+    # Only 96 notes are used (12 notes x 8 octaves)
     # instead of 127
-    for midinote in range(0, 96):
+    for midinote in range(0, 127):
         if LoadingInterrupt:
             return
         # Calculate the octave based on the note sequency
@@ -847,33 +863,30 @@ def ActuallyLoad():
             # file = os.path.join(dirname, "%d.wav" % midinote)
             file = get_note_file_name(octave, note)
             debugMsg("midinote " + str(midinote) + " globalvelocity " +
-                     str(globalvelocity) + " octave " + str(octave) +
-                     " note " + str(note) + " file " + file)
-            samples[midinote, globalvelocity] = classes.music.Sound(file, midinote, globalvelocity)
+                     str(globalvelocity) + " file " + file)
+            samples[midinote, globalvelocity] = Sound(file, midinote, globalvelocity)
 
-    # initial_keys = set(samples.keys())
-    # for midinote in xrange(128):
-    #     lastvelocity = None
-    #     for velocity in xrange(128):
-    #         if (midinote, velocity) not in initial_keys:
-    #             samples[midinote, velocity] = lastvelocity
-    #         else:
-    #             if not lastvelocity:
-    #                 for v in xrange(velocity):
-    #                     samples[midinote, v] = samples[midinote, velocity]
-    #             lastvelocity = samples[midinote, velocity]
-    #     if not lastvelocity:
-    #         for velocity in xrange(128):
-    #             try:
-    #                 samples[midinote, velocity] = samples[midinote-1, velocity]
-    #             except:
-    #                 pass
-    # if len(initial_keys) > 0:
-    #     debugMsg('Preset loaded: ' + str(preset))
-    #     # display("%04d" % preset)
-    # else:
-    #     debugMsg('Preset empty: ' + str(preset))
-    #     # display("E%03d" % preset)
+    initial_keys = set(samples.keys())
+    for midinote in range(128):
+        lastvelocity = None
+        for velocity in range(128):
+            if (midinote, velocity) not in initial_keys:
+                samples[midinote, velocity] = lastvelocity
+            else:
+                if not lastvelocity:
+                    for v in range(velocity):
+                        samples[midinote, v] = samples[midinote, velocity]
+                lastvelocity = samples[midinote, velocity]
+        if not lastvelocity:
+            for velocity in range(128):
+                try:
+                    samples[midinote, velocity] = samples[midinote-1, velocity]
+                except:
+                    pass
+    if len(initial_keys) > 0:
+        debugMsg('Preset loaded: ' + str(preset))
+    else:
+        debugMsg('Preset empty: ' + str(preset))
 
 # --------------------------------------------------------------
 #                           Application
