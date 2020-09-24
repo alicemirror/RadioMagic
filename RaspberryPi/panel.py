@@ -31,6 +31,9 @@ import threading
 import rtmidi_python as rtmidi
 import samplerbox_audio
 
+import pyaudio
+import wave
+
 from classes.music import Sound, PlayingSound, Ps
 
 # ------------------------ Creation of the root GUI
@@ -266,6 +269,9 @@ def klik(event, n):
 
     # n not zero
     debugMsg("click: " +str(n) + " event " + str(event))
+
+    if(n == 14):
+        record_sample()
 
     # Check if a bank change has been pressed. If the bank
     # is the same already loaded, do nothing
@@ -574,12 +580,15 @@ def refresh_bank_buttons():
             button[get_button_id(7, j)].config(image= image_off_button)
 
     # Show the button corresponding to the selected bank (rightmost column)
+    # and the sample button for the same bank (position 15)
     for i in range(panel_rows):
         if(current_bank == i):
             # Set the button with the corresponding bank select color
             button[get_button_id(i, 15)].config(image=b_images[1])
+            button[get_button_id(i, 14)].config(image=b_images[0])
         else:
             button[get_button_id(i, 15)].config(image= image_off_button)
+            button[get_button_id(i, 14)].config(image= image_off_button)
 
 def play_sample(btn, status):
     '''
@@ -847,6 +856,48 @@ def ActuallyLoad():
 
     # Button color in normal status
     button[(preset * 16) + 15].config(image=b_images[1])
+
+# --------------------------------------------------------------
+#                           Recording
+# --------------------------------------------------------------
+
+def record_sample():
+    form_1 = pyaudio.paInt16  # 16-bit resolution
+    chans = 1  # 1 channel
+    samp_rate = 44100  # 44.1kHz sampling rate
+    chunk = 4096  # 2^12 samples for buffer
+    record_secs = 5  # seconds to record
+    dev_index = 2  # device index found by p.get_device_info_by_index(ii)
+    wav_output_filename = 'test1.wav'  # name of .wav file
+
+    audio = pyaudio.PyAudio()  # create pyaudio instantiation
+
+    # create pyaudio stream
+    stream = audio.open(format=form_1, rate=samp_rate, channels=chans, \
+                        input_device_index=dev_index, input=True, \
+                        frames_per_buffer=chunk)
+    print("recording")
+    frames = []
+
+    # loop through stream and append audio chunks to frame array
+    for ii in range(0, int((samp_rate / chunk) * record_secs)):
+        data = stream.read(chunk)
+        frames.append(data)
+
+    print("finished recording")
+
+    # stop the stream, close it, and terminate the pyaudio instantiation
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+
+    # save the audio frames as .wav file
+    wavefile = wave.open(wav_output_filename, 'wb')
+    wavefile.setnchannels(chans)
+    wavefile.setsampwidth(audio.get_sample_size(form_1))
+    wavefile.setframerate(samp_rate)
+    wavefile.writeframes(b''.join(frames))
+    wavefile.close()
 
 # --------------------------------------------------------------
 #                           Application
