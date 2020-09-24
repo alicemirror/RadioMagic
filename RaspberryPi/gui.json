@@ -4,13 +4,14 @@
   "rows" : 8,
   "columns" : 16,
   "buttonImages" : 8,
-  "buttonsize" : 42,
+  "buttonsize" : 44,
   "frame_padX" : 0,
   "frame_padY" : 0,
-  "frame_border" : 2,
+  "frame_border" : 0,
   "offButtonImage" : "bNull",
   "imageType" : ".png",
   "audioDevice" : 2,
+  "midiDevice" : "Keystation Mini 32 20:0",
   "maxPolyphony" : 80,
   "note_names" : [  "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ]
 }

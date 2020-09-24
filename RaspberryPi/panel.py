@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 12
+@version 1.0 build 13
 @date September 2020
 '''
 
@@ -152,6 +152,9 @@ def load_GUI_parameters():
     # associated in the selected bank. The missing notes are
     # calculated expanding and compressing the sample frequencies
     global NOTES
+    # Midi device name as it appears in the list of recognized
+    # midi devices connected to the USB
+    global midi_device
 
     # Loads the parameters main dictionary
     with open("gui.json") as file:
@@ -170,6 +173,7 @@ def load_GUI_parameters():
     f_pady = int(dictionary['frame_padY'])
     max_polyphony = int(dictionary['maxPolyphony'])
     audio_device_id = int(dictionary['audioDevice'])
+    midi_device = dictionary['midiDevice']
     NOTES = dictionary['note_names']
 
     # The frame that includes all the buttons.
@@ -868,9 +872,11 @@ if __name__ == "__main__":
     debugMsg('midi ports ' + str(midi_in[0].ports))
     # for port in midi_in[0].ports:
     #     if port not in previous and 'Midi Through' not in port:
-    midi_in.append(rtmidi.MidiIn(b'Keystation Mini 32 20:0'))
+    # midi_in.append(rtmidi.MidiIn(b'Keystation Mini 32 20:0'))
+    midi_in.append(rtmidi.MidiIn(midi_device.encode()))
     midi_in[0].callback = MidiCallback
-    midi_in[0].open_port(b'Keystation Mini 32 20:0')
+    # midi_in[0].open_port(b'Keystation Mini 32 20:0')
+    midi_in[0].open_port(midi_device.encode())
     previous = midi_in[0].ports
 
     # Start the main loop application
