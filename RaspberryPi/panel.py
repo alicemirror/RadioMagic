@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 11
+@version 1.0 build 12
 @date September 2020
 '''
 
@@ -23,17 +23,11 @@ from functools import partial
 from time import sleep
 from PIL import Image, ImageTk
 import json
-# import tkSnack
 
-# import wave
-# import time
 import numpy
 import os
-# import re
 import sounddevice
 import threading
-# from chunk import Chunk
-# import struct
 import rtmidi_python as rtmidi
 import samplerbox_audio
 
@@ -44,8 +38,6 @@ window = tk.Tk()
 window.state('normal')
 window.title('Py Synth Control panel')
 window.background = 'black'
-# tkSnack.initializeSnack(window)
-# sound = tkSnack.Sound()
 
 # ------------------------ Screen resolution to parametrize the size of the buttons
 screen_width = window.winfo_screenwidth()
@@ -76,8 +68,15 @@ def debugMsg(m):
 
 # Samples loading thread
 LoadingThread = None
-#Sample loading IRQ
+# Sample loading IRQ
 LoadingInterrupt = False
+
+# When a button on the control panel has been pressed. Bound to the
+# corresponding mouse event on the corresponding widget button
+isPressed = True
+# When a button on the control panel has been released. Bound to the
+# corresponding mouse event on the corresponding widget button
+isReleased = False
 
 # --------------------------------------------------------------
 #                         Music Presets
@@ -93,7 +92,8 @@ samples = {}
 playingnotes = {}
 sustainplayingnotes = []
 sustain = False
-# playingsounds = []
+# Instance of the Ps class that makes the playingsounds array of pointers
+# available from everywhere
 ps = Ps
 
 midi_in = [rtmidi.MidiIn(b'in')]
@@ -243,13 +243,14 @@ def get_button_id(row, col):
 
     return (row * panel_cols) + col
 
-def klik(n):
+def klik(event, n):
     '''
     Button click callback function
 
     If the _debug flag is set to true, every time the top left
     button is pressed all the other buttons are set to the same color
 
+    :param event: The ID of the button event: 1 pressed, 0 released
     :param n: The ID of the clicked button
     '''
     global b_images
@@ -257,10 +258,10 @@ def klik(n):
     global panel_rows
     global max_button_functions
     global current_bank
+    global preset
 
     # n not zero
-    if (_debug):
-        print("click: %d" % n)
+    debugMsg("click: " +str(n) + " event " + str(event))
 
     # Check if a bank change has been pressed. If the bank
     # is the same already loaded, do nothing
@@ -268,34 +269,50 @@ def klik(n):
         if (current_bank != 0):
             load_bank_IDs(0)
             refresh_bank_buttons()
+            preset = 0
+            LoadSamples()
     elif(n == 31):
         if (current_bank != 1):
             load_bank_IDs(1)
             refresh_bank_buttons()
+            preset = 1
+            LoadSamples()
     elif(n == 47):
         if (current_bank != 2):
             load_bank_IDs(2)
             refresh_bank_buttons()
+            preset = 2
+            LoadSamples()
     elif(n == 63):
         if (current_bank != 3):
             load_bank_IDs(3)
             refresh_bank_buttons()
+            preset = 3
+            LoadSamples()
     elif(n == 79):
         if (current_bank != 4):
             load_bank_IDs(4)
             refresh_bank_buttons()
+            preset = 4
+            LoadSamples()
     elif(n == 95):
         if (current_bank != 5):
             load_bank_IDs(5)
             refresh_bank_buttons()
+            preset = 5
+            LoadSamples()
     elif(n == 111):
         if (current_bank != 6):
             load_bank_IDs(6)
             refresh_bank_buttons()
+            preset = 6
+            LoadSamples()
     elif(n == 127):
         if (current_bank != 7):
             load_bank_IDs(7)
             refresh_bank_buttons()
+            preset = 7
+            LoadSamples()
 
     # The note and octvae values are caltulated here to reduce the
     # number of calc but until are not verified by the controls below,
@@ -308,28 +325,28 @@ def klik(n):
         # Check for the note in the corresponding octave
         if(octave == 0):
             if(octave1[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 1):
             if(octave2[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 2):
             if(octave3[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 3):
             if(octave4[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 4):
             if(octave5[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 5):
             if(octave6[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 6):
             if(octave7[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
         elif(octave == 7):
             if(octave8[note] == 1):
-                play_sample(n)
+                play_sample(n, event)
 
 def calc_note(n):
     '''
@@ -371,14 +388,14 @@ def make_panel():
     global panel_rows
     global frame_container
     global image_off_button
+    global isPressed
+    global isReleased
 
     # Fill the buttons list with the objects
     for i in range(panel_rows):
         for j in range(panel_cols):
             button.append(
-                tk.Button(frame_container,
-                    image=image_off_button,
-                    command=partial(klik, get_button_id(i, j)))
+                tk.Button(frame_container, image=image_off_button )
             )
             button[-1].grid(row=i, column=j)
             button[-1].activebackground='black'
@@ -387,6 +404,9 @@ def make_panel():
             button[-1].border=8
             button[-1].background='black'
             button[-1].relief = 'sunken'
+            # Bind the callback function to the button intercepting the two events pressed and released
+            button[-1].bind("<ButtonPress-1>", lambda event, arg1=isPressed, arg2=get_button_id(i, j): klik(arg1, arg2) )
+            button[-1].bind("<ButtonRelease-1>", lambda event, arg1=isReleased, arg2=get_button_id(i, j): klik(arg1, arg2) )
 
 # --------------------------------------------------------------
 #                       Bank Functions
@@ -557,41 +577,20 @@ def refresh_bank_buttons():
         else:
             button[get_button_id(i, 15)].config(image= image_off_button)
 
-def play_sample(btn):
+def play_sample(btn, status):
     '''
-    Play the sample corresponding to the note button parameter, if a sample
-    is present in the position of the current loaded bank.
+    Play the note corresponding to the note button parameter, according
+    to the samples in the current loaded bank or stop playing it.
 
-    The unique button ID is decoded in row and column, corresponding to the
-    octave and specific note.
-
-    :param btn: The ID of the note (corresponding to the button ID
+    :param btn: The ID of the note (corresponding to the button ID)
+    :param status: if True, plays the sample else stop playing
     '''
-    global current_bank
-    global panel_rows
-    global panel_cols
-    global max_button_images
-    global max_button_functions
-    global button_size
-    global samples_path
-    global images_path
-    global _debug
-
-    octave = calc_octave(btn)
-    note = calc_note(btn)
-
-    debugMsg(" Octave " + str(octave) +
-              " note " + str(note) +
-              " button " + str(btn) )
-
-    sample_full_name = get_note_file_name(octave, note)
-
-    debugMsg("playing " + sample_full_name)
-
-    # # Read the file
-    # sound.read(sample_full_name)
-    # # Play sound
-    # sound.play(blocking=1)
+    if(status):
+        button[btn].config(image=b_images[3])
+        MidiCallback([145, btn, 34], 0)
+    else:
+        button[btn].config(image=b_images[5])
+        MidiCallback([145, btn, 0], 0)
 
 def get_note_file_name(octave, note):
     '''
@@ -614,14 +613,18 @@ def get_note_file_name(octave, note):
 
 def AudioCallback(outdata, frame_count, time_info, status):
     '''
+    Callback associated to the audio hardware. It is executed when
+    a MIDI message sends the playnote features.
+    The audio callback is based on the samplerbox_audio library and
+    can mix up to max_polyphony different audio buffers played together.
 
     :param outdata:
     :param frame_count:
     :param time_info:
     :param status:
-    :return:
     '''
-    # global playingsounds
+    global globavolume
+
     rmlist = []
     ps.playingsounds = ps.playingsounds[-max_polyphony:]
     b = samplerbox_audio.mixaudiobuffers(ps.playingsounds, rmlist, frame_count, FADEOUT, FADEOUTLENGTH, SPEED)
@@ -635,11 +638,10 @@ def AudioCallback(outdata, frame_count, time_info, status):
 
 def MidiCallback(message, time_stamp):
     '''
-    Process the MIDI messages
+    Process the MIDI messages and plays the notes.
 
     :param message: The MIDI message packet
     :param time_stamp: The timestamp for correctly queue the messages
-    :return:
     '''
     global playingnotes, sustain, sustainplayingnotes
     global preset, globaltranspose, globalvolume
@@ -648,20 +650,22 @@ def MidiCallback(message, time_stamp):
     # Decode the MIDI message in its components
     messagetype = message[0] >> 4
     messagechannel = (message[0] & 15) + 1
+    # Check if this MIDI message includes a note
     note = message[1] if len(message) > 1 else None
     midinote = note
+    # Check if this MIDI message includes a specification of the velocity
     velocity = message[2] if len(message) > 2 else None
 
     debugMsg("MidiCallback message " + str(message) + " messagetype " + str(messagetype) +
              " messagechannel " + str(messagechannel) + " midinote " + str(midinote) +
              " velocity " + str(velocity))
 
-    # Assumes the message type (9) note on with velocity 0 as
-    # message type (8) note off
+    # Assumes the message type (9) note on with velocity 0 is
+    # a message type (8) note off
     if messagetype == 9 and velocity == 0:
         messagetype = 8
 
-    # If message type (9) note on apply eventual octave transposition and play
+    # If is a message type (9) note on apply eventual octave transposition and play
     # the note
     if messagetype == 9:
         debugMsg("messagetype is 9 (note on) globaltranspose " + str(globaltranspose))
@@ -681,8 +685,8 @@ def MidiCallback(message, time_stamp):
             for n in playingnotes[midinote]:
                 if sustain:
                     sustainplayingnotes.append(n)
-                # else:
-                #     n.fadeout(50)
+                else:
+                    n.fadeout(50)
             # Empty the played notes array
             playingnotes[midinote] = []
 
@@ -775,7 +779,6 @@ def ActuallyLoad():
     global playingnotes
     global sustainplayingnotes
     global sustain
-    # global playingsounds
     global octave1
     global octave2
     global octave3
@@ -787,62 +790,12 @@ def ActuallyLoad():
 
     ps.playingsounds = []
     samples = {}
-    # globalvolume = 10 ** (-12.0/20)  # -12dB default global volume
-    # globaltranspose = 0
 
-    # use current folder (containing 0 Saw) if no user media containing samples has been found
-    # samplesdir = samples_path if os.listdir(samples_path) else '.'
-
-    # basename = next((f for f in os.listdir(samplesdir) if f.startswith("%d " % preset)), None)      # or next(glob.iglob("blah*"), None)
-    # if basename:
-    #     dirname = os.path.join(samplesdir, basename)
-    # if not basename:
-    #     debugMsg('Preset empty: %s' % preset)
-    #     return
-    # debugMsg('Preset loading: %s (%s)' % (preset, basename))
-
-    # definitionfname = os.path.join(dirname, "definition.txt")
-
-    # if os.path.isfile(definitionfname):
-    #     with open(definitionfname, 'r') as definitionfile:
-    #         for i, pattern in enumerate(definitionfile):
-    #             try:
-    #                 # globalvolume already set when reading from the json bank file
-    #                 # if r'%%volume' in pattern:        # %%paramaters are global parameters
-    #                 #     globalvolume *= 10 ** (float(pattern.split('=')[1].strip()) / 20)
-    #                 #     continue
-    #
-    #                 # globaltranspose already set when reading from the json bank file
-    #                 # if r'%%transpose' in pattern:
-    #                 #     globaltranspose = int(pattern.split('=')[1].strip())
-    #                 #     continue
-    #                 defaultparams = {'midinote': '0', 'velocity': '127', 'notename': ''}
-    #
-    #                 if len(pattern.split(',')) > 1:
-    #                     defaultparams.update(dict([item.split('=') for item in pattern.split(',', 1)[1].replace(' ', '').replace('%', '').split(',')]))
-    #                 pattern = pattern.split(',')[0]
-    #                 pattern = re.escape(pattern.strip())
-    #                 pattern = pattern.replace(r"\%midinote", r"(?P<midinote>\d+)").replace(r"\%velocity", r"(?P<velocity>\d+)")\
-    #                                  .replace(r"\%notename", r"(?P<notename>[A-Ga-g]#?[0-9])").replace(r"\*", r".*?").strip()    # .*? => non greedy
-    #                 for fname in os.listdir(dirname):
-    #                     if LoadingInterrupt:
-    #                         return
-    #                     m = re.match(pattern, fname)
-    #                     if m:
-    #                         info = m.groupdict()
-    #                         midinote = int(info.get('midinote', defaultparams['midinote']))
-    #                         velocity = int(info.get('velocity', defaultparams['velocity']))
-    #                         notename = info.get('notename', defaultparams['notename'])
-    #                         if notename:
-    #                             midinote = NOTES.index(notename[:-1].lower()) + (int(notename[-1])+2) * 12
-    #                         samples[midinote, velocity] = Sound(os.path.join(dirname, fname), midinote, velocity)
-    #             except:
-    #                 debugMsg('Error in definition file, skipping line %s.' % (i+1))
-
-    # else:
+    # Button color in loading status
+    button[(preset * 16) + 15].config(image=b_images[7])
 
     # Only 96 notes are used (12 notes x 8 octaves)
-    # instead of 127
+    # instead of 127.
     for midinote in range(0, 127):
         if LoadingInterrupt:
             return
@@ -888,6 +841,9 @@ def ActuallyLoad():
     else:
         debugMsg('Preset empty: ' + str(preset))
 
+    # Button color in normal status
+    button[(preset * 16) + 15].config(image=b_images[1])
+
 # --------------------------------------------------------------
 #                           Application
 # --------------------------------------------------------------
@@ -915,7 +871,6 @@ if __name__ == "__main__":
     midi_in.append(rtmidi.MidiIn(b'Keystation Mini 32 20:0'))
     midi_in[0].callback = MidiCallback
     midi_in[0].open_port(b'Keystation Mini 32 20:0')
-            # print('Opened MIDI: ' + port)
     previous = midi_in[0].ports
 
     # Start the main loop application

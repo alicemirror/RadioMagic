@@ -24,7 +24,8 @@ class Ps():
 
 class waveread(wave.Wave_read):
     '''
-
+    Manages the file acquisition, check the wav coherence and
+    get the loop markers, ifany.
     '''
     def initfp(self, file):
         '''
@@ -32,10 +33,7 @@ class waveread(wave.Wave_read):
         This method check the selected file for validity based on its header content
         and read the various chunk types
 
-        @todo Convert error strings in integer codes to reduce the amount of memory
-
         :param file:  The file to inizialize
-        :return:
         '''
         self._convert = None
         self._soundpos = 0
@@ -45,9 +43,6 @@ class waveread(wave.Wave_read):
         self._file = Chunk(file, bigendian=0)
 
         # Check for RIFF id in the file header
-
-        if(_class_debug): print("D: file.getname() " + str(self._file.getname()))
-
         if self._file.getname() != b'RIFF':
             raise Exception('file does not start with RIFF id')
         ## Check that file is a wav
@@ -59,7 +54,8 @@ class waveread(wave.Wave_read):
         # Content of the current data chunk
         self._data_chunk = None
 
-        # Read the wav file in chunks until the end
+        # Read the wav file in chunks until the end of file
+        # and organizes properly the chunks
         while 1:
             self._data_seek_needed = 1
             try:
@@ -100,7 +96,7 @@ class waveread(wave.Wave_read):
 
     def getmarkers(self):
         '''
-        Get the marker, if any, got from the chunk reading
+        Get the marker, if any, from the chunk currently reading
 
         :return: The current marker
         '''
@@ -108,7 +104,7 @@ class waveread(wave.Wave_read):
 
     def getloops(self):
         '''
-        Get the loops got from the chunk
+        Get the loops from the chunk currently reading
 
         :return: The number of loops in the sample
         '''
@@ -182,7 +178,7 @@ class Sound:
 
     def play(self, note):
         '''
-        Append the selected note playing as an instance to
+        Append the selected note playing as an instance
         of the Sound class
 
         :param note: The selected note
