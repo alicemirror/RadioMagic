@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 15
+@version 1.0 build 16
 @date September 2020
 '''
 
@@ -334,29 +334,24 @@ def klik(event, n):
     # from 1 to 12, left to right, for every row/octave
     # a new sample is read and saved on the corresopnding
     # note.
-
-    if( (event is True) and (
+    if( event and (
             (synth_Status is PiSynthStatus.STANDBY) or
-            (synth_Status is PiSynthStatus.RECORDING)
+            (synth_Status is PiSynthStatus.SAMPLEMODE)
             ) ):
         try:
             n_index = record_button_numbers.index(n)
 
             # If the button is the current bank
             # change the status of the recording mode
-            if(n_index == current_bank):
+            if(n_index is current_bank):
                 # If recording mode is set, disable it
-                if(synth_Status is PiSynthStatus.RECORDING):
+                if(synth_Status is PiSynthStatus.SAMPLEMODE):
                     synth_Status = PiSynthStatus.STANDBY
                     button[n].config(image=b_images[0])
                 else:
                     # Set recording mode
-                    synth_Status = PiSynthStatus.RECORDING
+                    synth_Status = PiSynthStatus.SAMPLEMODE
                     button[n].config(image=b_images[7])
-                    # load_bank_IDs(n_index)
-                    # refresh_bank_buttons()
-                    # preset = n_index
-                    # LoadSamples()
         except:
             # No recording button found
             pass
@@ -367,11 +362,14 @@ def klik(event, n):
     note = calc_note(n)
     octave = calc_octave(n)
 
-    # Notes should be in the range of a full octave
+    # Notes should be in the range of a full octave base zero (0-11)
+    # Not button press has effect only if the system in STANDBY (play note)
+    # or in SAMPLEMODE (record samples).
     if( (note < 12)  and (synth_Status == PiSynthStatus.STANDBY) ):
         # Reduce the octave to a number between 0 and 7 (rows order)
         octave = (n // panel_rows) // 2
-        # Check for the note in the corresponding octave
+
+        # Check for the note playable in the corresponding octave
         if(octave == 0):
             if(octave1[note] == 1):
                 play_sample(n, event)
@@ -396,6 +394,9 @@ def klik(event, n):
         elif(octave == 7):
             if(octave8[note] == 1):
                 play_sample(n, event)
+
+    if( (note < 12)  and (synth_Status == PiSynthStatus.SAMPLEMODE) and event):
+        record_sample(n)
 
 def calc_note(n):
     '''
@@ -907,11 +908,17 @@ def record_sample(btn):
     global synth_Status
     global sample_lenght
     global audio_device_id
+    global current_bank
+    global button
+    global b_image
 
     debugMsg("Recording sample")
 
     # Initial status when starting
     synth_Status = PiSynthStatus.RECORDING
+    # Set the button recording
+    button[btn].config(image=b_images[2])
+    refresh_bank_buttons()
 
     # Audio format 16-bit resolution
     form_1 = pyaudio.paInt16
@@ -950,8 +957,14 @@ def record_sample(btn):
     wavefile.writeframes(b''.join(frames))
     wavefile.close()
 
-    # Initial status when starting
-    synth_Status = PiSynthStatus.RECORDING
+    # Reload the samples bank
+    button[btn].config(image=b_images[2])
+    refresh_bank_buttons()
+    preset = current_bank
+    LoadSamples()
+
+    # Reset the status to SAMPLEMODE, ready to record a new sample
+    synth_Status = PiSynthStatus.STANDBY
 
     debugMsg("Sample saved")
 

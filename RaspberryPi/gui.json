@@ -17,5 +17,5 @@
   "recordSampleRate" : 44100,
   "recordChunkSize" : 4096,
   "recordChannels" : 1,
-  "recordDuration" : 5
+  "recordDuration" : 8
 }
