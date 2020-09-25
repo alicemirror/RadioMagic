@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 13
+@version 1.0 build 14
 @date September 2020
 '''
 
@@ -35,6 +35,7 @@ import pyaudio
 import wave
 
 from classes.music import Sound, PlayingSound, Ps
+from classes.gui import PiSynthStatus
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
@@ -149,20 +150,36 @@ def load_GUI_parameters():
     # Ma value for pholyphony output
     # This can be set higher, but 80 is a safe value
     global max_polyphony
+    # The ID of the audio output device. In the case of the internal output it is
+    # 0 or 1 depending on the setting of analog output or HDMI output. The USB
+    # sound board has typically the id 2
     global audio_device_id
     # List with the names of the notes to load the samples
     # Every sample file name is the same of the note that should
     # associated in the selected bank. The missing notes are
     # calculated expanding and compressing the sample frequencies
-    global NOTES
+    global note_names
     # Midi device name as it appears in the list of recognized
     # midi devices connected to the USB
     global midi_device
+    # Recording sample rate (44 or 48 KHz
+    global sampling_rate
+    # Recording chunk size in bytes (will work fine with 4096)
+    global recording_chunk_size
+    # Recording channels. Currently only the mono recording is
+    # supported by the audio card (1 channel)
+    global input_channels
+    # The current status of the system
+    global synth_Status
+    # The sample record duration (seconds)
+    # The value should be included between 1 sec and 9 sec max.
+    global sample_lenght
 
     # Loads the parameters main dictionary
     with open("gui.json") as file:
         dictionary = json.load(file)
 
+    # Interface settings
     image_extension = dictionary['imageType']
     images_path = dictionary['images']
     max_button_images = int(dictionary['buttonImages'])
@@ -174,10 +191,27 @@ def load_GUI_parameters():
     f_border = int(dictionary['frame_border'])
     f_padx = int(dictionary['frame_padX'])
     f_pady = int(dictionary['frame_padY'])
+
+    # Playing control parameters
     max_polyphony = int(dictionary['maxPolyphony'])
     audio_device_id = int(dictionary['audioDevice'])
     midi_device = dictionary['midiDevice']
-    NOTES = dictionary['note_names']
+    note_names = dictionary['note_names']
+
+    # Recording settings
+    sampling_rate = int(dictionary['recordSampleRate'])
+    recording_chunk_size = int(dictionary['recordChunkSize'])
+    input_channels = int(dictionary['recordChannels'])
+    sample_lenght = int(dictionary['recordDuration'])
+
+    # Check to the sample lenght limits
+    if(sample_lenght < 1):
+        sample_lenght = 1
+    elif(sample_lenght > 9):
+        sample_lenght = 9
+
+    # Initial status when starting
+    synth_Status = PiSynthStatus.STANDBY
 
     # The frame that includes all the buttons.
     # The parameters for the border and pads will center the button grid
@@ -191,6 +225,7 @@ def load_GUI_parameters():
         fill=tk.BOTH
     )
 
+    # Prepares the images for the graphic interface
     image_off_button = resize_image_button(images_path + dictionary['offButtonImage'] + image_extension)
     b_images = list(resize_image_button((images_path + "b%02d" + image_extension) % (i + 1))
                     for i in range(max_button_images))
@@ -266,12 +301,18 @@ def klik(event, n):
     global max_button_functions
     global current_bank
     global preset
+    global synth_Status
 
     # n not zero
     debugMsg("click: " +str(n) + " event " + str(event))
 
-    if(n == 14):
+    if( (n == 14) and event):
         record_sample()
+
+    # List of the bank buttons to check if a bank change has been pressed
+    bank_button_numbers = [ 15, 31, 41, 63, 79, 95 ]
+
+
 
     # Check if a bank change has been pressed. If the bank
     # is the same already loaded, do nothing
@@ -614,10 +655,10 @@ def get_note_file_name(octave, note):
     :param note: The note id
     :return: The full path note sample file
     '''
-    global NOTES
+    global note_names
     global current_bank
 
-    note_file_name = NOTES[note] + str(octave + 1) + ".wav"
+    note_file_name = note_names[note] + str(octave + 1) + ".wav"
     return samples_path + "B" + str(current_bank) + "/" + note_file_name
 
 # --------------------------------------------------------------
@@ -764,7 +805,6 @@ def calc_global_volume(vol):
 def LoadSamples():
     global LoadingThread
     global LoadingInterrupt
-    global NOTES
     global samples
 
     if LoadingThread:
@@ -787,7 +827,6 @@ def ActuallyLoad():
     global globaltranspose
     global globalvelocity
     global samples_path
-    global NOTES
     global samples
     global playingnotes
     global sustainplayingnotes
@@ -861,30 +900,42 @@ def ActuallyLoad():
 #                           Recording
 # --------------------------------------------------------------
 
-def record_sample():
-    form_1 = pyaudio.paInt16  # 16-bit resolution
-    chans = 1  # 1 channel
-    samp_rate = 44100  # 44.1kHz sampling rate
-    chunk = 4096  # 2^12 samples for buffer
-    record_secs = 5  # seconds to record
-    dev_index = 2  # device index found by p.get_device_info_by_index(ii)
-    wav_output_filename = 'test1.wav'  # name of .wav file
+def record_sample(btn):
+    global sampling_rate
+    global recording_chunk_size
+    global input_channels
+    global synth_Status
+    global sample_lenght
+    global audio_device_id
 
-    audio = pyaudio.PyAudio()  # create pyaudio instantiation
+    debugMsg("Recording sample")
 
-    # create pyaudio stream
-    stream = audio.open(format=form_1, rate=samp_rate, channels=chans, \
-                        input_device_index=dev_index, input=True, \
-                        frames_per_buffer=chunk)
-    print("recording")
+    # Initial status when starting
+    synth_Status = PiSynthStatus.RECORDING
+
+    # Audio format 16-bit resolution
+    form_1 = pyaudio.paInt16
+
+    # Calculate the name of the file according to the note button
+    note = calc_note(btn)
+    octave = calc_octave(btn)
+    wav_output_filename = get_note_file_name(octave, note)
+    # Instance of the PyAudio library
+    audio = pyaudio.PyAudio()
+
+    # Create the pyaudio stream
+    stream = audio.open(format=form_1, rate=sampling_rate, channels=input_channels,
+                        input_device_index=audio_device_id, input=True,
+                        frames_per_buffer=recording_chunk_size)
+
     frames = []
 
     # loop through stream and append audio chunks to frame array
-    for ii in range(0, int((samp_rate / chunk) * record_secs)):
-        data = stream.read(chunk)
+    for ii in range(0, int((sampling_rate / recording_chunk_size) * sample_lenght)):
+        data = stream.read(recording_chunk_size)
         frames.append(data)
 
-    print("finished recording")
+    debugMsg("Recording finished")
 
     # stop the stream, close it, and terminate the pyaudio instantiation
     stream.stop_stream()
@@ -893,11 +944,16 @@ def record_sample():
 
     # save the audio frames as .wav file
     wavefile = wave.open(wav_output_filename, 'wb')
-    wavefile.setnchannels(chans)
+    wavefile.setnchannels(input_channels)
     wavefile.setsampwidth(audio.get_sample_size(form_1))
-    wavefile.setframerate(samp_rate)
+    wavefile.setframerate(sampling_rate)
     wavefile.writeframes(b''.join(frames))
     wavefile.close()
+
+    # Initial status when starting
+    synth_Status = PiSynthStatus.RECORDING
+
+    debugMsg("Sample saved")
 
 # --------------------------------------------------------------
 #                           Application
@@ -921,9 +977,6 @@ if __name__ == "__main__":
     LoadSamples()
 
     debugMsg('midi ports ' + str(midi_in[0].ports))
-    # for port in midi_in[0].ports:
-    #     if port not in previous and 'Midi Through' not in port:
-    # midi_in.append(rtmidi.MidiIn(b'Keystation Mini 32 20:0'))
     midi_in.append(rtmidi.MidiIn(midi_device.encode()))
     midi_in[0].callback = MidiCallback
     # midi_in[0].open_port(b'Keystation Mini 32 20:0')

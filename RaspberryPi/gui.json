@@ -13,5 +13,9 @@
   "audioDevice" : 2,
   "midiDevice" : "Keystation Mini 32 20:0",
   "maxPolyphony" : 80,
-  "note_names" : [  "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ]
+  "note_names" : [  "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ],
+  "recordSampleRate" : 44100,
+  "recordChunkSize" : 4096,
+  "recordChannels" : 1,
+  "recordDuration" : 5
 }

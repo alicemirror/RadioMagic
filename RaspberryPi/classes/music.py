@@ -3,6 +3,7 @@
 @brief Classes to manage the audio playing and MIDI
 '''
 
+import enum
 import wave
 import time
 import os
@@ -18,7 +19,24 @@ import samplerbox_audio
 
 _class_debug = False
 
+class PiSynthStatus(enum.Enum):
+    '''
+    Defines the various status of the application
+    '''
+    # Ready to accept commands, initialization complete
+    standby = 0
+    # The applicaiton is loading a new bank of samples
+    loading = 1
+    # The application is recording a sample
+    recording = 2
+
 class Ps():
+    '''
+    Makes global the playingsounds array with the current
+    sounds playing.
+    The value is initialized to empty list when the class
+    is instantiated for the first time.
+    '''
     def __init__(self):
         self.playingsounds = []
 
