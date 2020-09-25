@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 16
+@version 1.0 Release Candidate build 17
 @date September 2020
 '''
 
@@ -395,7 +395,10 @@ def klik(event, n):
             if(octave8[note] == 1):
                 play_sample(n, event)
 
-    if( (note < 12)  and (synth_Status == PiSynthStatus.SAMPLEMODE) and event):
+    if( (note < 12) and (synth_Status == PiSynthStatus.SAMPLEMODE) and event):
+        # Set the button recording
+        button[n].config(image=b_images[2])
+        refresh_bank_buttons_while_recording(n)
         record_sample(n)
 
 def calc_note(n):
@@ -465,7 +468,10 @@ def make_panel():
 def load_bank_IDs(bank):
     '''
     Load the notes status array for one of the eight octaves of the
-    selected bank
+    selected bank.
+    The note position in the array is set to 1 if the note has a file
+    in the corresponding bank folder. Samples wav file names have the same
+    name of the associated note.
     :param bank: The desired bank number
     '''
     # The selected samples bank ID from 0 to 7. A max of 8 banks
@@ -534,16 +540,89 @@ def load_bank_IDs(bank):
     # Load the notes flags for every octave.
     # There are max eight octaves and the notes are
     # listed in the traditional order c, c#, d, d#, e, f, f#, a, a#, b
-    # Every note that correspons a sample in the current bank has the
-    # flag set to 1 else it is 0
-    octave1 = dictionary['oct1']
-    octave2 = dictionary['oct2']
-    octave3 = dictionary['oct3']
-    octave4 = dictionary['oct4']
-    octave5 = dictionary['oct5']
-    octave6 = dictionary['oct6']
-    octave7 = dictionary['oct7']
-    octave8 = dictionary['oct8']
+    # Every note that corresponds to a sample in the current bank. If the
+    # file exists, the note position in the aray is set to 1 else it is 0
+    octave1 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave2 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave3 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave4 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave5 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave6 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave7 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    octave8 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    debugMsg("Octave1 " + str(octave1) + "\n" +
+          "Octave2 " + str(octave2) + "\n" +
+          "Octave3 " + str(octave3) + "\n" +
+          "Octave4 " + str(octave4) + "\n" +
+          "Octave5 " + str(octave5) + "\n" +
+          "Octave6 " + str(octave6) + "\n" +
+          "Octave7 " + str(octave7) + "\n" +
+          "Octave8 " + str(octave8) )
+
+    # Loop all the notes of every bank to see if the corresponding file
+    # exists. In this case the array position is set to 1
+    for j in range(12):
+        # Create the full file name of the note for every bank
+        # then if the file exists, set the corresponding flag
+        # # in the octave array.
+        if(os.path.isfile(get_note_file_name(0, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(0, j) + " file exists")
+            octave1[j] = 1
+        else:
+            octave1[j] = 0
+
+        if(os.path.isfile(get_note_file_name(1, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(1, j) + " file exists")
+            octave2[j] = 1
+        else:
+            octave2[j] = 0
+
+        if(os.path.isfile(get_note_file_name(2, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(2, j) + " file exists")
+            octave3[j] = 1
+        else:
+            octave3[j] = 0
+
+        if(os.path.isfile(get_note_file_name(3, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(3, j) + " file exists")
+            octave4[j] = 1
+        else:
+            octave4[j] = 0
+
+        if(os.path.isfile(get_note_file_name(4, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(4, j) + " file exists")
+            octave5[j] = 1
+        else:
+            octave5[j] = 0
+
+        if(os.path.isfile(get_note_file_name(5, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(5, j) + " file exists")
+            octave6[j] = 1
+        else:
+            octave6[j] = 0
+
+        if(os.path.isfile(get_note_file_name(6, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(6, j) + " file exists")
+            octave7[j] = 1
+        else:
+            octave7[j] = 0
+
+        if(os.path.isfile(get_note_file_name(7, j))):
+            debugMsg("j " + str(j) + " bFname " + get_note_file_name(7, j) + " file exists")
+            octave8[j] = 1
+        else:
+            octave8[j] = 0
+
+    debugMsg("Octave1 " + str(octave1) + "\n" +
+          "Octave2 " + str(octave2) + "\n" +
+          "Octave3 " + str(octave3) + "\n" +
+          "Octave4 " + str(octave4) + "\n" +
+          "Octave5 " + str(octave5) + "\n" +
+          "Octave6 " + str(octave6) + "\n" +
+          "Octave7 " + str(octave7) + "\n" +
+          "Octave8 " + str(octave8) )
+
     # Load the desired default volume for the bank samples and calculate
     # the corresponding volume for note playing
     calc_global_volume(float(dictionary['volume']))
@@ -629,6 +708,81 @@ def refresh_bank_buttons():
         else:
             button[get_button_id(i, 15)].config(image= image_off_button)
             button[get_button_id(i, 14)].config(image= image_off_button)
+
+def refresh_bank_buttons_while_recording(btn):
+    '''
+    Refresh the buttons of the interface according to the current
+    bank.
+    '''
+    global panel_rows
+    global panel_cols
+    global current_bank
+    global image_off_button
+    global octave1
+    global octave2
+    global octave3
+    global octave4
+    global octave5
+    global octave6
+    global octave7
+    global octave8
+
+    # Enable the buttons with a note in the bank (first 12 buttons from left)
+    # Loop all the 12 notes and updates the 8 octaves
+    for j in range(12):
+        if(octave1[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(0, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(0, j)].config(image= image_off_button)
+        if(octave2[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(1, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(1, j)].config(image= image_off_button)
+        if(octave3[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(2, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(2, j)].config(image= image_off_button)
+        if(octave4[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(3, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(3, j)].config(image= image_off_button)
+        if(octave5[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(4, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(4, j)].config(image= image_off_button)
+        if(octave6[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(5, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(5, j)].config(image= image_off_button)
+        if(octave7[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(6, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(6, j)].config(image= image_off_button)
+        if(octave8[j] == 1):
+            # Set the button of the color used for samples
+            button[get_button_id(7, j)].config(image=b_images[5])
+        else:
+            button[get_button_id(7, j)].config(image= image_off_button)
+
+    # Show the button corresponding to the selected bank (rightmost column)
+    # and the sample button for the same bank (position 15)
+    for i in range(panel_rows):
+        if(current_bank == i):
+            # Set the button with the corresponding bank select color
+            button[get_button_id(i, 15)].config(image=b_images[1])
+            button[get_button_id(i, 14)].config(image=b_images[0])
+        else:
+            button[get_button_id(i, 15)].config(image= image_off_button)
+            button[get_button_id(i, 14)].config(image= image_off_button)
+
+    button[btn].config(image=b_images[2])
 
 def play_sample(btn, status):
     '''
@@ -916,9 +1070,6 @@ def record_sample(btn):
 
     # Initial status when starting
     synth_Status = PiSynthStatus.RECORDING
-    # Set the button recording
-    button[btn].config(image=b_images[2])
-    refresh_bank_buttons()
 
     # Audio format 16-bit resolution
     form_1 = pyaudio.paInt16
@@ -959,6 +1110,7 @@ def record_sample(btn):
 
     # Reload the samples bank
     button[btn].config(image=b_images[2])
+    load_bank_IDs(current_bank)
     refresh_bank_buttons()
     preset = current_bank
     LoadSamples()
