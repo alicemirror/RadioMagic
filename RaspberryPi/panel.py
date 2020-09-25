@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 build 14
+@version 1.0 build 15
 @date September 2020
 '''
 
@@ -40,7 +40,7 @@ from classes.gui import PiSynthStatus
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
 window.state('normal')
-window.title('Py Synth Control panel')
+window.title('PiSynth Control panel')
 window.background = 'black'
 
 # ------------------------ Screen resolution to parametrize the size of the buttons
@@ -306,72 +306,70 @@ def klik(event, n):
     # n not zero
     debugMsg("click: " +str(n) + " event " + str(event))
 
-    if( (n == 14) and event):
-        record_sample()
-
     # List of the bank buttons to check if a bank change has been pressed
-    bank_button_numbers = [ 15, 31, 41, 63, 79, 95 ]
+    bank_button_numbers = [15, 31, 47, 63, 79, 95, 111, 127]
+    # List of the record buttons for every bank
+    record_button_numbers = [14, 30, 46, 62, 78, 94, 110, 126]
 
+    # Check if the button is a bank change buttons.
+    # Only the pressed event button is accepted
+    # If the bank is the same already loaded, do nothing
+    if(event and (synth_Status == PiSynthStatus.STANDBY)):
+        try:
+            n_index = bank_button_numbers.index(n)
+            # if the button is not the current bank
+            if(n_index != current_bank):
+                synth_Status = PiSynthStatus.LOADING
+                load_bank_IDs(n_index)
+                refresh_bank_buttons()
+                preset = n_index
+                LoadSamples()
+        except:
+            # No bank button found
+            pass
 
+    # Check if the button is the bank sample record.
+    # This button enable or disable the record mode.
+    # When the record mode is enabled, pressing any note button
+    # from 1 to 12, left to right, for every row/octave
+    # a new sample is read and saved on the corresopnding
+    # note.
 
-    # Check if a bank change has been pressed. If the bank
-    # is the same already loaded, do nothing
-    if(n == 15):
-        if (current_bank != 0):
-            load_bank_IDs(0)
-            refresh_bank_buttons()
-            preset = 0
-            LoadSamples()
-    elif(n == 31):
-        if (current_bank != 1):
-            load_bank_IDs(1)
-            refresh_bank_buttons()
-            preset = 1
-            LoadSamples()
-    elif(n == 47):
-        if (current_bank != 2):
-            load_bank_IDs(2)
-            refresh_bank_buttons()
-            preset = 2
-            LoadSamples()
-    elif(n == 63):
-        if (current_bank != 3):
-            load_bank_IDs(3)
-            refresh_bank_buttons()
-            preset = 3
-            LoadSamples()
-    elif(n == 79):
-        if (current_bank != 4):
-            load_bank_IDs(4)
-            refresh_bank_buttons()
-            preset = 4
-            LoadSamples()
-    elif(n == 95):
-        if (current_bank != 5):
-            load_bank_IDs(5)
-            refresh_bank_buttons()
-            preset = 5
-            LoadSamples()
-    elif(n == 111):
-        if (current_bank != 6):
-            load_bank_IDs(6)
-            refresh_bank_buttons()
-            preset = 6
-            LoadSamples()
-    elif(n == 127):
-        if (current_bank != 7):
-            load_bank_IDs(7)
-            refresh_bank_buttons()
-            preset = 7
-            LoadSamples()
+    if( (event is True) and (
+            (synth_Status is PiSynthStatus.STANDBY) or
+            (synth_Status is PiSynthStatus.RECORDING)
+            ) ):
+        try:
+            n_index = record_button_numbers.index(n)
 
-    # The note and octvae values are caltulated here to reduce the
-    # number of calc but until are not verified by the controls below,
-    # it is not certain that correspond to a real value
+            # If the button is the current bank
+            # change the status of the recording mode
+            if(n_index == current_bank):
+                # If recording mode is set, disable it
+                if(synth_Status is PiSynthStatus.RECORDING):
+                    synth_Status = PiSynthStatus.STANDBY
+                    button[n].config(image=b_images[0])
+                else:
+                    # Set recording mode
+                    synth_Status = PiSynthStatus.RECORDING
+                    button[n].config(image=b_images[7])
+                    # load_bank_IDs(n_index)
+                    # refresh_bank_buttons()
+                    # preset = n_index
+                    # LoadSamples()
+        except:
+            # No recording button found
+            pass
+
+    # The note and octvae values are calculated here to reduce the
+    # number of controls but until are not verified against the note status
+    # (presence of a sample) it is not certain that correspond to a real value
     note = calc_note(n)
     octave = calc_octave(n)
 
-    if(note < 12):
+    # Notes should be in the range of a full octave
+    if( (note < 12)  and (synth_Status == PiSynthStatus.STANDBY) ):
+        # Reduce the octave to a number between 0 and 7 (rows order)
         octave = (n // panel_rows) // 2
         # Check for the note in the corresponding octave
         if(octave == 0):
@@ -839,6 +837,7 @@ def ActuallyLoad():
     global octave6
     global octave7
     global octave8
+    global synth_Status
 
     ps.playingsounds = []
     samples = {}
@@ -895,6 +894,7 @@ def ActuallyLoad():
 
     # Button color in normal status
     button[(preset * 16) + 15].config(image=b_images[1])
+    synth_Status = PiSynthStatus.STANDBY
 
 # --------------------------------------------------------------
 #                           Recording

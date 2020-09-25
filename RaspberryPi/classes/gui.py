@@ -16,7 +16,7 @@ class PiSynthStatus(Enum):
     # Ready to accept commands, initialization complete
     # MIDI is working on current bank
     STANDBY = 1
-    # The applicaiton is loading a new bank of samples
+    # The application is loading a new bank of samples
     LOADING = 2
     # The application is recording a sample
     RECORDING = 3
