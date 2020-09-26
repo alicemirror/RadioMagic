@@ -13,7 +13,7 @@ effects generators and more.
 define in the GUI configuration file gui.json
 
 @author Enrico Miglino <balearicdynamicw@gmail.com>
-@version 1.0 Release Candidate build 17
+@version 1.0 Release build 18
 @date September 2020
 '''
 
@@ -35,7 +35,7 @@ import pyaudio
 import wave
 
 from classes.music import Sound, PlayingSound, Ps
-from classes.gui import PiSynthStatus
+from classes.gui import PiSynthStatus, Utilities
 
 # ------------------------ Creation of the root GUI
 window = tk.Tk()
@@ -85,12 +85,6 @@ isReleased = False
 # --------------------------------------------------------------
 #                         Music Presets
 # --------------------------------------------------------------
-
-FADEOUTLENGTH = 30000
-FADEOUT = numpy.linspace(1., 0., FADEOUTLENGTH)
-FADEOUT = numpy.power(FADEOUT, 6)
-FADEOUT = numpy.append(FADEOUT, numpy.zeros(FADEOUTLENGTH, numpy.float32)).astype(numpy.float32)
-SPEED = numpy.power(2, numpy.arange(0.0, 84.0)/12).astype(numpy.float32)
 
 samples = {}
 playingnotes = {}
@@ -174,6 +168,13 @@ def load_GUI_parameters():
     # The sample record duration (seconds)
     # The value should be included between 1 sec and 9 sec max.
     global sample_lenght
+    # The fade out duration base for the notes. This value is
+    # used to calculate the fadeout of every note
+    global FADEOUTLENGTH
+    # Note fadeout
+    global FADEOUT
+    # Playing speed (stretch factore)
+    global SPEED
 
     # Loads the parameters main dictionary
     with open("gui.json") as file:
@@ -212,6 +213,15 @@ def load_GUI_parameters():
 
     # Initial status when starting
     synth_Status = PiSynthStatus.STANDBY
+
+    # Read the global fadeout duration and calculate
+    # the notes fadeout
+    FADEOUTLENGTH = int(dictionary['fadeoutLength'])
+    FADEOUT = Utilities.calcFade1(FADEOUTLENGTH)
+    FADEOUT = Utilities.calcFade2(FADEOUT)
+    FADEOUT = Utilities.calcFade3(FADEOUT, FADEOUTLENGTH)
+
+    SPEED = Utilities.calcStretchFactor()
 
     # The frame that includes all the buttons.
     # The parameters for the border and pads will center the button grid
@@ -713,6 +723,13 @@ def refresh_bank_buttons_while_recording(btn):
     '''
     Refresh the buttons of the interface according to the current
     bank.
+
+    ***
+    NOT USED IN THIS VERSION. WORK PROPERLY IF record_sample RUNS IN S
+    SEPARATE THREAD.
+    ***
+
+    :param btn: The current note button
     '''
     global panel_rows
     global panel_cols
