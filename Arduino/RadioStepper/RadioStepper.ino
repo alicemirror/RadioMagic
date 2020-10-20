@@ -5,7 +5,7 @@
  * 
  * @author Enrico Miglino <balearicdynamics@gmail.com>
  * @date July 2020 - October 2020
- * @version 1.0 Nano build 11
+ * @version 1.0 Nano build 14 Release Candidate
  */
 
 #include <Streaming.h>
@@ -15,7 +15,7 @@
 #include "constants.h"
 
 //! Undef this constant to enable the serial debug
-#define DEBUG
+#undef DEBUG
 
 //! Pointer to the ClickEncoder class
 ClickEncoder *encoder;
@@ -81,7 +81,6 @@ void loop() {
       // the programmed status is automatically reset
       setProgrammingStatus(false);
     }
-    // Disable the bank selection until the user does not press the rotary encoder button
     encoderCounter = 0; // Reset che counter readings
     // Check for the direction (clockwise of conterclockwise)
     if (radioStepper.encValue == ROTARY_CW) {
@@ -104,14 +103,25 @@ void loop() {
   // Check for the rotary encoder button press. The 0 value shown on power-on can't be selected
   ClickEncoder::Button encButton = encoder->getButton();
   if(encButton == ClickEncoder::Clicked) {
+  #ifdef DEBUG
+      Serial << "Encoder button clicked" << endl;
+  #endif
     if(radioStepper.isSelected == false){
-    radioStepper.isSelected = true;
-    setProgrammingStatus(false);
+      radioStepper.isSelected = true;
+      setProgrammingStatus(false);
+      // LED fixed on
+      digitalWrite(PROG_LED, HIGH);
+#ifdef DEBUG
+      Serial << "isSelected true" << endl;
+#endif
     } // Button pressed for the first time: start programming the range
     else {
+  #ifdef DEBUG
+      Serial << "Set prog status true" << endl;
+  #endif
       setProgrammingStatus(true);
-    } // Button pressed for the second time. Programming ended.
-  }
+    } // Programming ended, start looping
+  } // Encoder button clicked
 
   // Check for looping
   if(radioStepper.isLooping == true) {
@@ -122,6 +132,9 @@ void loop() {
     }
     radioTuner.step(STEPPER_INCREMENT * radioStepper.loopDirection);
   }
+  
+  // Non-blocking LED blinking, if needed
+  blinkLEDOnce();
 }
 
 /**
@@ -129,12 +142,24 @@ void loop() {
  */
 void irqLoopButton() {
   if(radioStepper.isProgrammed == true) {
-    // If the tuner is programmed, change the status of the loop flag
+    detachInterrupt(digitalPinToInterrupt(LOOPER_BUTTON));
+     // If the tuner is programmed, change the status of the loop flag
     if(radioStepper.isLooping == true) {
       radioStepper.isLooping = false;
+      radioStepper.blinkLEDFrequency = LED_IDLE;
+#ifdef DEBUG
+      Serial << "LED idle" << endl;
+#endif
     } else {
       radioStepper.isLooping = true;
+      radioStepper.blinkLEDFrequency = LED_FREQ;
+#ifdef DEBUG
+      Serial << "LED frequency" << endl;
+#endif
     }
+  attachInterrupt(digitalPinToInterrupt(LOOPER_BUTTON), irqLoopButton, LOW);
+  delay(10);
+  radioStepper.millisCounter = millis();
   }
 }
 
@@ -142,14 +167,10 @@ void irqLoopButton() {
  * Change the radioStepper settings depending on
  * the program mode.
  * 
- * \param mode Enable or diable the programming mode
+ * \param mode Enable or disable the programming mode
  */
  void setProgrammingStatus(boolean mode) {
   if(mode == true) {
-      #ifdef DEBUG
-      Serial << "End prog. Tuner loops " << radioStepper.loopSteps <<
-                " steps." << endl;
-      #endif
       // reset the programming selection status for the next cycle
       radioStepper.isSelected = false;
       radioStepper.isProgrammed = true;
@@ -164,16 +185,19 @@ void irqLoopButton() {
         // Start increasing the tuner position
         radioStepper.loopDirection = ROTATION_CW;
       }
+      // Set the non-stopping blinking parameters
+      // And initializes the timer.
+      radioStepper.blinkLEDFrequency = LED_FREQ;
+      radioStepper.millisCounter = millis();
   } else {
-      #ifdef DEBUG
-      Serial << "Prog mode off" << endl;
-      #endif
     //! Initializes the steps counter
     radioStepper.loopSteps = 0;
     // Disable the programming status
     radioStepper.isProgrammed = false;
     // Disable the looping mode
     radioStepper.isLooping = false;
+    // LED off
+    digitalWrite(PROG_LED, LOW);
   }
  }
 
@@ -189,9 +213,6 @@ void irqLoopButton() {
  void updateLoopCount(int dir) {
   if(radioStepper.isSelected == true) {
     radioStepper.loopSteps += dir;
-//    #ifdef DEBUG
-//    Serial << "Update the loop counter to " << radioStepper.loopSteps << endl;
-//    #endif
   }
 }
 
@@ -203,7 +224,20 @@ void irqLoopButton() {
  * do nothing.
  */
 void blinkLEDOnce() {
-  
+  // Check if it is blink time
+  if( ((millis() - radioStepper.millisCounter) >= radioStepper.blinkLEDFrequency) && radioStepper.isProgrammed) {
+    // Invert the status of the LED
+    if(radioStepper.isLEDOn) {
+      digitalWrite(PROG_LED, LOW);
+      radioStepper.isLEDOn = false;
+    }
+    else {
+      digitalWrite(PROG_LED, HIGH);
+      radioStepper.isLEDOn = true;
+    }
+    // Update the counter
+    radioStepper.millisCounter = millis();
+  }
 }
 
 /**

@@ -65,8 +65,11 @@
 #define LOOPER_BUTTON 2
 //! Programming LED signal
 #define PROG_LED 4
-//! Led frequency
-#define LED_FREQ 50
+//! LED frequency while the stepper is looping
+#define LED_FREQ 100
+//! LED frequency when idling (looper button control has temporary
+//! stopped the loop)
+#define LED_IDLE 1000
 
 // ==============================
 //        Status Struct
@@ -86,6 +89,7 @@ struct RadioStepper {
    * the button is not pressed for the second time.
    */
   bool isSelected = false;
+  
   /**
    * When the button has been pressed for the second time, the 
    * programmed status indicates that the system is ready to 
@@ -99,6 +103,7 @@ struct RadioStepper {
   //! Looping direction. It is inverted when one of the two limits
   //! is reached
   int loopDirection = 0;
+  
   /**
    * Steps units expressed in number of rotary pulses
    * 
@@ -110,6 +115,16 @@ struct RadioStepper {
   int loopSteps = 0;
   //! Current rotary encoder position
   int16_t encValue = 0;
+
+  //! Current LED non-stop blinking frequency
+  //! It is different when looping is stopped by the stepper is
+  //! programmed
+  int blinkLEDFrequency;
+  //! LED status, inverted during the non-blocking blinking mechanism
+  boolean isLEDOn = false;
+  //! Starting millis to calculate the period for LED blinking in the
+  //! non-blocking function
+  unsigned long millisCounter;
 };
 
 #endif
