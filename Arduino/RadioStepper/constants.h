@@ -58,11 +58,15 @@
 #define ENCODER_READINGS 1
 
 // ==============================
-//        Looper Button
+//       Looper Button &LED
 // ==============================
 
 //! Rotary encoder button pin (attached to Nano IRQ0)
 #define LOOPER_BUTTON 2
+//! Programming LED signal
+#define PROG_LED 4
+//! Led frequency
+#define LED_FREQ 50
 
 // ==============================
 //        Status Struct

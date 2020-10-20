@@ -4,8 +4,8 @@
  * with Arduino Nano.
  * 
  * @author Enrico Miglino <balearicdynamics@gmail.com>
- * @date July 2020
- * @version 1.0 Nano build 10
+ * @date July 2020 - October 2020
+ * @version 1.0 Nano build 11
  */
 
 #include <Streaming.h>
@@ -15,7 +15,7 @@
 #include "constants.h"
 
 //! Undef this constant to enable the serial debug
-#undef DEBUG
+#define DEBUG
 
 //! Pointer to the ClickEncoder class
 ClickEncoder *encoder;
@@ -55,6 +55,9 @@ void setup() {
   // Enable the loop control interrupt button
   // ------------------------------------------------
   pinMode(LOOPER_BUTTON, INPUT_PULLUP);
+  pinMode(PROG_LED, OUTPUT);
+  // Start showing the LED activity
+  blinkLEDPeriod(1500);
   attachInterrupt(digitalPinToInterrupt(LOOPER_BUTTON), irqLoopButton, LOW);
 }
 
@@ -82,17 +85,11 @@ void loop() {
     encoderCounter = 0; // Reset che counter readings
     // Check for the direction (clockwise of conterclockwise)
     if (radioStepper.encValue == ROTARY_CW) {
-      #ifdef DEBUG
-      Serial << "Clockwise rotation " << ONE_MOVE_CLOCKWISE << endl;
-      #endif
       radioTuner.step(ONE_MOVE_CLOCKWISE);
       // Update the loop counter (only if programming is set)
       updateLoopCount(ONE_MOVE_CLOCKWISE);
     } // Clockwise rotation 
     else {
-      #ifdef DEBUG
-      Serial << "Counterclockwise rotation " << ONE_MOVE_COUNTERCLOCKWISE << endl;
-      #endif
       radioTuner.step(ONE_MOVE_COUNTERCLOCKWISE);
       // Update the loop counter (only if programming is set)
       updateLoopCount(ONE_MOVE_COUNTERCLOCKWISE);
@@ -110,9 +107,6 @@ void loop() {
     if(radioStepper.isSelected == false){
     radioStepper.isSelected = true;
     setProgrammingStatus(false);
-    #ifdef DEBUG
-    Serial << "Start freq. range programming" << endl;
-    #endif
     } // Button pressed for the first time: start programming the range
     else {
       setProgrammingStatus(true);
@@ -127,9 +121,6 @@ void loop() {
       radioStepper.loopDirection *= -1; // Invert the loop direction
     }
     radioTuner.step(STEPPER_INCREMENT * radioStepper.loopDirection);
-    #ifdef DEBUG
-    Serial << "Current stepper position " << radioStepper.tunerPosition << endl;
-    #endif
   }
 }
 
@@ -157,7 +148,7 @@ void irqLoopButton() {
   if(mode == true) {
       #ifdef DEBUG
       Serial << "End prog. Tuner loops " << radioStepper.loopSteps <<
-                " steps in both directions" << endl;
+                " steps." << endl;
       #endif
       // reset the programming selection status for the next cycle
       radioStepper.isSelected = false;
@@ -198,8 +189,63 @@ void irqLoopButton() {
  void updateLoopCount(int dir) {
   if(radioStepper.isSelected == true) {
     radioStepper.loopSteps += dir;
-    #ifdef DEBUG
-    Serial << "Update the loop counter to " << radioStepper.loopSteps << endl;
-    #endif
+//    #ifdef DEBUG
+//    Serial << "Update the loop counter to " << radioStepper.loopSteps << endl;
+//    #endif
+  }
+}
+
+/**
+ * Blink the signal LED once, inverting the status of the LED. This function should
+ * be used during uninterruptable LED blinking.
+ * 
+ * The LED status is changed only if the right frequency time has passed else the function
+ * do nothing.
+ */
+void blinkLEDOnce() {
+  
+}
+
+/**
+ * Blink the signal LED for a specified period (ms). If the period duration is
+ * less than the frequency needed to blink twice, the function do nothing.
+ * 
+ * \param period The blink duration in ms
+ */
+void blinkLEDPeriod(int period) {
+  // Check that the period is at least four times the blink frequency
+  if(period / 2 >= LED_FREQ * 2) {
+    //! The number of blinks (On/Off) of the LED
+    int stepBlink = period / LED_FREQ;
+    //! Blink loop
+    int j;
+    boolean isOn = true;
+
+#ifdef DEBUG
+    Serial << "blinkLEDPeriod(" << period << ") stepBlink " << stepBlink <<
+              " Frequency " << LED_FREQ << endl;
+#endif
+    
+    // Loop for the needed period
+    for(j = 0; j < stepBlink; j++) {
+      // Invert the last LED status and set the LED
+      if(isOn) {
+        digitalWrite(PROG_LED, HIGH);
+        isOn = false;
+      }
+      else {
+        digitalWrite(PROG_LED, LOW);
+        isOn = true;
+      }
+      delay(LED_FREQ);
+#ifdef DEBUG
+      Serial << " " << isOn;
+#endif
+    }
+    // Reset the LED to off
+    digitalWrite(PROG_LED, LOW);
+#ifdef DEBUG
+    Serial << endl << " END." << endl;
+#endif
   }
 }
