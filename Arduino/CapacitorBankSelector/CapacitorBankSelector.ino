@@ -1,3 +1,4 @@
+
 /**
  * @file CapacitorBankSelector.ino
  * @brief Software sketch to contorl the rotary encoder and 7-segments LED display
@@ -7,7 +8,7 @@
  * three sNE555-based synths frequency capacitors bank selection.
  * 
  * @author Enrico Miglino <balearicdynamics@gmail.com>
- * @date June 2020
+ * @date June 2020 - October 2020
  * @version 1.0
  */
 
@@ -31,9 +32,9 @@
 //! Rotary encoder data pin
 #define ROTARY_DATA 7
 //! Rotary encoder value when rotating clockwise
-#define ROTARY_CW -1
+#define ROTARY_CW 1
 //! Rotary encoder value when rotating counterclockwise
-#define ROTARY_CCW 1
+#define ROTARY_CCW -1
 
 //! Number of reading of the rotary encoder to take effect
 //! Only the second reading is considered valid
@@ -64,7 +65,7 @@
 //! HEF4066B quad analog switch
 int capArray[NUM_CAPACITORS] = { CAP_1, CAP_2, CAP_3, CAP_4, CAP_5, CAP_6 };
 
-//! Undef this constant to eidable the serial output debug
+//! Undef this constant to enable the serial output debug
 #undef DEBUG
 
 /**
@@ -81,17 +82,17 @@ int capArray[NUM_CAPACITORS] = { CAP_1, CAP_2, CAP_3, CAP_4, CAP_5, CAP_6 };
  */
 #define DOT_7SEG 10
 byte segments[11] = { 
-    0xB7,       // 0 
+    0x77,       // 0 
     0x14,       // 1
-    0x73,       // 2
-    0x76,       // 3
+    0xB3,       // 2
+    0xB6,       // 3
     0xD4,       // 4
     0xE6,       // 5
     0xE7,       // 6
     0x34,       // 7
     0xF7,       // 8
     0xF6,       // 9
-    0x08        // Dot   
+    0x08        // Dot
     };
 
 /** Creates the shiftOutX library instance with a single
@@ -141,7 +142,7 @@ void setup() {
   // Initialize the Rotary Encoder
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr); 
-  update7Seg(bankCapacitors.currentBank);
+  update7Seg();
 }
 
 /** 
@@ -184,7 +185,7 @@ void loop() {
       Serial << "Counterclockwise rotation " << bankCapacitors.currentBank << endl;
       #endif
       } // Counterclockwise rotation
-  update7Seg(bankCapacitors.currentBank);
+  update7Seg();
   } // Rotary encoder has been moved twice
   else {
     if(bankCapacitors.encValue != 0){
@@ -204,14 +205,14 @@ void loop() {
     Serial << "BUTTON PRESSED " << endl;
     #endif
     bankCapacitors.isSelected = true;
-    update7Seg(bankCapacitors.currentBank);
-    enableCap(bankCapacitors.currentBank);
+    update7Seg();
+    enableCap();
   }
 }
 
 //! Update the 7-segments LED display according to the number index of the array
 //! If the bank selected flag is enabled, the dot is shown as well.
-void update7Seg(int number) {
+void update7Seg() {
   // Update the number on the display
   regOne.pinOff(0xFF);
   // Check for the Dot
@@ -232,7 +233,7 @@ void disableAllCaps() {
 //! Enable the desired capacitor in the bank
 //!
 //! @note The capacitor is numbered starting from 1 (lower)
-void enableCap(int capId) {
+void enableCap() {
   disableAllCaps();
-  digitalWrite(capArray[capId - 1], HIGH);
+  digitalWrite(capArray[bankCapacitors.currentBank - 1], HIGH);
 }
